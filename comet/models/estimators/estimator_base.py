@@ -247,19 +247,40 @@ class Estimator(ModelBase):
                 )
             scores = []
             for model_input in model_inputs:
-                if cuda and torch.cuda.is_available():
-                    model_input = move_to_cuda(model_input)
-                    model_out = self.forward(**model_input)
-                    model_out = move_to_cpu(model_out)
-                else:
-                    model_out = self.forward(**model_input)
+                tmp_scores = []
+                for i in range(5):
+                    if cuda and torch.cuda.is_available():
+                        model_input = move_to_cuda(model_input)
+                        model_out = self.forward(**model_input)
+                        model_out = move_to_cpu(model_out)
+                    else:
+                        model_out = self.forward(**model_input)
 
-                model_scores = model_out["score"].numpy().tolist()
-                for i in range(len(model_scores)):
-                    scores.append(model_scores[i][0])
+                    model_scores = model_out["score"].numpy().tolist()
+                    for i in range(len(model_scores)):
+                        tmp_scores.append(model_scores[i][0])
+
+                scores.append(tmp_scores)
 
                 if show_progress:
                     pbar.update(1)
+
+
+            # scores = []
+            # for model_input in model_inputs:
+            #     if cuda and torch.cuda.is_available():
+            #         model_input = move_to_cuda(model_input)
+            #         model_out = self.forward(**model_input)
+            #         model_out = move_to_cpu(model_out)
+            #     else:
+            #         model_out = self.forward(**model_input)
+            #
+            #     model_scores = model_out["score"].numpy().tolist()
+            #     for i in range(len(model_scores)):
+            #         scores.append(model_scores[i][0])
+            #
+            #     if show_progress:
+            #         pbar.update(1)
 
             if show_progress:
                 pbar.close()
