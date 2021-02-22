@@ -259,7 +259,7 @@ class Estimator(ModelBase):
                     model_scores = model_out["score"].numpy().tolist()
                     for i in range(len(model_scores)):
                         tmp_scores.append(model_scores[i][0])
-                        
+
                 print('len tmp_scores: ', len(tmp_scores))
                 scores.append(tmp_scores)
 
