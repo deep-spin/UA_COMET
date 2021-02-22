@@ -12,6 +12,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from operator import itemgetter
+import numpy as np
 
 from comet.metrics import RegressionReport
 from comet.models.model_base import ModelBase
@@ -63,7 +65,7 @@ class Estimator(ModelBase):
         loss: str = "mse"
         hidden_sizes: str = "1024"
         activations: str = "Tanh"
-        dropout: float = 0.1
+        dropout: float = 0.7
         final_activation: str = "Sigmoid"
 
     def __init__(self, hparams: Namespace) -> None:
@@ -245,9 +247,14 @@ class Estimator(ModelBase):
                     dynamic_ncols=True,
                     leave=None,
                 )
+
             scores = []
+            # print(model_inputs[0])
+            # print(model_inputs[1])
+            means = []
             for model_input in model_inputs:
                 tmp_scores = []
+                tmp_means = []
                 for i in range(5):
                     if cuda and torch.cuda.is_available():
                         model_input = move_to_cuda(model_input)
@@ -257,17 +264,24 @@ class Estimator(ModelBase):
                         model_out = self.forward(**model_input)
 
                     model_scores = model_out["score"].numpy().tolist()
+                    tmp = []
                     for i in range(len(model_scores)):
-                        tmp_scores.append(model_scores[i][0])
+                        tmp.append(model_scores[i][0])
+                    tmp_means.append(np.mean(tmp))
+                    tmp_scores.append(tmp)
 
-                print('len tmp_scores: ', len(tmp_scores))
-                scores.append(tmp_scores)
+                # print('len tmp_scores: ', len(tmp_scores))
+                means.append(tmp_means)
+                scores.append(list(map(itemgetter(0), tmp_scores)))
+                scores.append(list(map(itemgetter(1), tmp_scores)))
+                # scores.append(tmp_scores)
 
                 if show_progress:
                     pbar.update(1)
 
 
             # scores = []
+            # # print('len model_inputs', len(model_inputs))
             # for model_input in model_inputs:
             #     if cuda and torch.cuda.is_available():
             #         model_input = move_to_cuda(model_input)
@@ -277,6 +291,7 @@ class Estimator(ModelBase):
             #         model_out = self.forward(**model_input)
             #
             #     model_scores = model_out["score"].numpy().tolist()
+            #     # print('len model_scores', len(model_scores))
             #     for i in range(len(model_scores)):
             #         scores.append(model_scores[i][0])
             #
@@ -286,7 +301,20 @@ class Estimator(ModelBase):
             if show_progress:
                 pbar.close()
 
+
+        print('! ! ! !')
+        print('LEN MEANS', len(means))
+        print(len(means[0]))
+        for i in means:
+            print('Mean: ', np.mean(i))
+            print('Variance: ', np.var(i))
+        print('! ! ! !')
         print('len scores: ', len(scores))
+        # print('len of 1 score: ', len(scores[0])) # list of floats
+        print('SCORES[0]: ', scores[0])
+        print('SCORES[1]: ', scores[1])
+        print('SCORES[2]: ', scores[2])
+        print('SCORES[3]: ', scores[3])
         print('len samples: ', len(samples))
         assert len(scores) == len(samples)
         for i in range(len(scores)):
