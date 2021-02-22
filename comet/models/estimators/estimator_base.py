@@ -259,9 +259,9 @@ class Estimator(ModelBase):
                     model_scores = model_out["score"].numpy().tolist()
                     for i in range(len(model_scores)):
                         tmp_scores.append(model_scores[i][0])
-
+                        
+                print('len tmp_scores: ', len(tmp_scores))
                 scores.append(tmp_scores)
-                # tmp
 
                 if show_progress:
                     pbar.update(1)
@@ -286,6 +286,8 @@ class Estimator(ModelBase):
             if show_progress:
                 pbar.close()
 
+        print('len scores: ', len(scores))
+        print('len samples: ', len(samples))
         assert len(scores) == len(samples)
         for i in range(len(scores)):
             samples[i]["predicted_score"] = scores[i]
