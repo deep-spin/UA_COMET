@@ -65,8 +65,9 @@ class Estimator(ModelBase):
         loss: str = "mse"
         hidden_sizes: str = "1024"
         activations: str = "Tanh"
-        dropout: float = 0.7
+        dropout: float = 0.1 # affects training
         final_activation: str = "Sigmoid"
+        # n_stoch_runs: float = 30.0
 
     def __init__(self, hparams: Namespace) -> None:
         super().__init__(hparams)
@@ -212,6 +213,12 @@ class Estimator(ModelBase):
         :return: Dictionary with original samples, predicted scores and langid results for SRC and MT
             + list of predicted scores
         """
+        if not self.training:
+            print('here')
+            for m in self.modules():  # .modules():
+                if m.__class__.__name__.startswith('Dropout'):
+                    m.train()
+
         if self.training:
             self.eval()
 
@@ -249,13 +256,10 @@ class Estimator(ModelBase):
                 )
 
             scores = []
-            # print(model_inputs[0])
-            # print(model_inputs[1])
-            means = []
+            stds = []
             for model_input in model_inputs:
                 tmp_scores = []
-                tmp_means = []
-                for i in range(5):
+                for i in range(30):  # self.n_stoch_runs
                     if cuda and torch.cuda.is_available():
                         model_input = move_to_cuda(model_input)
                         model_out = self.forward(**model_input)
@@ -264,24 +268,24 @@ class Estimator(ModelBase):
                         model_out = self.forward(**model_input)
 
                     model_scores = model_out["score"].numpy().tolist()
+                    # print('model_scores: ', model_scores)
                     tmp = []
                     for i in range(len(model_scores)):
                         tmp.append(model_scores[i][0])
-                    tmp_means.append(np.mean(tmp))
                     tmp_scores.append(tmp)
 
-                # print('len tmp_scores: ', len(tmp_scores))
-                means.append(tmp_means)
-                scores.append(list(map(itemgetter(0), tmp_scores)))
-                scores.append(list(map(itemgetter(1), tmp_scores)))
-                # scores.append(tmp_scores)
+                for i in range(len(tmp_scores[0])):  # number of input sentences
+                    scores.append(np.mean(list(map(itemgetter(i), tmp_scores))))
+                    stds.append(np.std(list(map(itemgetter(i), tmp_scores))))
+
+                # scores.append(list(map(itemgetter(0), tmp_scores)))
+                # scores.append(list(map(itemgetter(1), tmp_scores)))
 
                 if show_progress:
                     pbar.update(1)
 
 
             # scores = []
-            # # print('len model_inputs', len(model_inputs))
             # for model_input in model_inputs:
             #     if cuda and torch.cuda.is_available():
             #         model_input = move_to_cuda(model_input)
@@ -291,7 +295,6 @@ class Estimator(ModelBase):
             #         model_out = self.forward(**model_input)
             #
             #     model_scores = model_out["score"].numpy().tolist()
-            #     # print('len model_scores', len(model_scores))
             #     for i in range(len(model_scores)):
             #         scores.append(model_scores[i][0])
             #
@@ -301,24 +304,10 @@ class Estimator(ModelBase):
             if show_progress:
                 pbar.close()
 
-
-        print('! ! ! !')
-        print('LEN MEANS', len(means))
-        print(len(means[0]))
-        for i in means:
-            print('Mean: ', np.mean(i))
-            print('Variance: ', np.var(i))
-        print('! ! ! !')
-        print('len scores: ', len(scores))
-        # print('len of 1 score: ', len(scores[0])) # list of floats
-        print('SCORES[0]: ', scores[0])
-        print('SCORES[1]: ', scores[1])
-        print('SCORES[2]: ', scores[2])
-        print('SCORES[3]: ', scores[3])
-        print('len samples: ', len(samples))
         assert len(scores) == len(samples)
         for i in range(len(scores)):
-            samples[i]["predicted_score"] = scores[i]
+            samples[i]["predicted_score_mean"] = scores[i]
+            samples[i]["predicted_score_std"] = stds[i]
         return samples, scores
 
     def document_predict(
