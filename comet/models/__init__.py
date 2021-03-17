@@ -11,6 +11,8 @@ from .estimators import CometEstimator, QualityEstimator
 from .model_base import ModelBase
 from .ranking import CometRanker
 
+from subprocess import check_output #CZ: used for cache redirection
+
 str2model = {
     "CometEstimator": CometEstimator,
     "CometRanker": CometRanker,
@@ -19,10 +21,20 @@ str2model = {
 }
 
 MODELS_URL = "https://unbabel-experimental-models.s3.amazonaws.com/comet/share/public-models.yaml"
-
+HERA_ip = '193.136.223.39'
+ZEUS_ip = '193.136.223.43'
 
 def get_cache_folder():
-    if "HOME" in os.environ:
+
+    #CZ redirect cache: check server ip and redirect accordingly#
+    ips = check_output(['hostname', '--all-ip-addresses'])
+    ip = ips.decode().strip()
+    if HERA_ip in ip:
+        cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+    elif ZEUS_ip in ip:
+        cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+
+    elif "HOME" in os.environ:
         cache_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
         if not os.path.exists(cache_directory):
             os.makedirs(cache_directory)

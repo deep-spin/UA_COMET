@@ -6,6 +6,7 @@ import fastBPE
 from torchnlp.download import download_file_maybe_extract
 
 from .tokenizer_base import TextEncoderBase
+from subprocess import check_output #CZ: used for cache redirection
 
 L93_CODES_URL = "https://dl.fbaipublicfiles.com/laser/models/93langs.fcodes"
 L93_VOCAB_URL = "https://dl.fbaipublicfiles.com/laser/models/93langs.fvocab"
@@ -13,7 +14,19 @@ L93_VOCAB_URL = "https://dl.fbaipublicfiles.com/laser/models/93langs.fvocab"
 L93_CODES_FILE = "93langs.fcodes"
 L93_VOCAB_FILE = "93langs.fvocab"
 
-if "HOME" in os.environ:
+
+#CZ redirect cache/saving dir: check server ip and redirect accordingly#
+
+HERA_ip = '193.136.223.39'
+ZEUS_ip = '193.136.223.43'
+
+ips = check_output(['hostname', '--all-ip-addresses'])
+ip = ips.decode().strip()
+if HERA_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif ZEUS_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif "HOME" in os.environ:
     saving_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
 else:
     raise Exception("HOME environment variable is not defined.")

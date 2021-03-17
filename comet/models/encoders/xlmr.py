@@ -17,6 +17,8 @@ from fairseq.models.roberta import XLMRModel
 from torchnlp.download import download_file_maybe_extract
 from torchnlp.utils import lengths_to_mask
 
+from subprocess import check_output #CZ: used for cache redirection
+
 XLMR_LARGE_URL = "https://dl.fbaipublicfiles.com/fairseq/models/xlmr.large.tar.gz"
 XLMR_LARGE_MODEL_NAME = "xlmr.large/model.pt"
 
@@ -29,7 +31,18 @@ XLMR_LARGE_V0_MODEL_NAME = "xlmr.large.v0/model.pt"
 XLMR_BASE_V0_URL = "https://dl.fbaipublicfiles.com/fairseq/models/xlmr.base.v0.tar.gz"
 XLMR_BASE_V0_MODEL_NAME = "xlmr.base.v0/model.pt"
 
-if "HOME" in os.environ:
+#CZ redirect cache/saving dir: check server ip and redirect accordingly#
+
+HERA_ip = '193.136.223.39'
+ZEUS_ip = '193.136.223.43'
+
+ips = check_output(['hostname', '--all-ip-addresses'])
+ip = ips.decode().strip()
+if HERA_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif ZEUS_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif "HOME" in os.environ:
     saving_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
 else:
     raise Exception("HOME environment variable is not defined.")

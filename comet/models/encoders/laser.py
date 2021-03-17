@@ -23,6 +23,7 @@ from comet.models.utils import convert_padding_direction, sort_sequences
 from comet.tokenizers import FastBPEEncoder
 from torchnlp.download import download_file_maybe_extract
 from torchnlp.utils import lengths_to_mask
+from subprocess import check_output #CZ: used for cache redirection
 
 # LASER model trained for 93 different languages.
 L93_LASER_MODEL_URL = (
@@ -37,7 +38,19 @@ EPARL_LASER_MODEL_URL = (
 )
 EPARL_MODEL_NAME = "bilstm.eparl21.2018-11-19.pt"
 
-if "HOME" in os.environ:
+
+#CZ redirect cache/saving dir: check server ip and redirect accordingly#
+
+HERA_ip = '193.136.223.39'
+ZEUS_ip = '193.136.223.43'
+
+ips = check_output(['hostname', '--all-ip-addresses'])
+ip = ips.decode().strip()
+if HERA_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif ZEUS_ip in ip:
+    saving_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+elif "HOME" in os.environ:
     saving_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
 else:
     raise Exception("HOME environment variable is not defined.")
