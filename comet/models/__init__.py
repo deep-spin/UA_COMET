@@ -33,14 +33,13 @@ def get_cache_folder():
         cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
     elif ZEUS_ip in ip:
         cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
-
     elif "HOME" in os.environ:
         cache_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
-        if not os.path.exists(cache_directory):
-            os.makedirs(cache_directory)
-        return cache_directory
     else:
         raise Exception("HOME environment variable is not defined.")
+    if not os.path.exists(cache_directory):
+        os.makedirs(cache_directory)
+    return cache_directory
 
 
 def model2download(

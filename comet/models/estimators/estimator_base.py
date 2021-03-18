@@ -214,7 +214,7 @@ class Estimator(ModelBase):
             + list of predicted scores
         """
         if not self.training:
-            print('here')
+            print('enabling dropout during testime')
             for m in self.modules():  # .modules():
                 if m.__class__.__name__.startswith('Dropout'):
                     m.train()
@@ -259,6 +259,7 @@ class Estimator(ModelBase):
             stds = []
             for model_input in model_inputs:
                 tmp_scores = []
+                print('run 30 rounds')
                 for i in range(30):  # self.n_stoch_runs
                     if cuda and torch.cuda.is_available():
                         model_input = move_to_cuda(model_input)
@@ -303,7 +304,7 @@ class Estimator(ModelBase):
 
             if show_progress:
                 pbar.close()
-
+      
         assert len(scores) == len(samples)
         for i in range(len(scores)):
             samples[i]["predicted_score_mean"] = scores[i]
