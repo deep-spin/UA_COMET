@@ -111,6 +111,15 @@ def train(config):
     type=str,
     show_default=True,
 )
+#TODO CZ: calculate once and then just read mean/std?
+@click.option(
+    "--normalise_comet",
+    default=False,
+    help="Normalise comet scores (current setup: normalise before dropout calculation)",
+    type=str,
+    show_default=True
+)
+
 def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
     source = [s.strip() for s in source.readlines()]
     hypothesis = [s.strip() for s in hypothesis.readlines()]
@@ -134,6 +143,32 @@ def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
         "COMET system score: {:.3f}".format(sum(scores) / len(scores)), fg="yellow"
     )
 
+
+def normalize_score(model, source, hypothesis, reference, cuda, batch_size, to_json):
+    source = [s.strip() for s in source.readlines()]
+    hypothesis = [s.strip() for s in hypothesis.readlines()]
+    reference = [s.strip() for s in reference.readlines()]
+    data = {"src": source, "mt": hypothesis, "ref": reference}
+    data = [dict(zip(data, t)) for t in zip(*data.values())]
+
+    model = load_checkpoint(model) if os.path.exists(model) else download_model(model)
+    mean, std = model.get_normalized_probs(data, cuda, show_progress=True, batch_size=batch_size)
+    print("mean: %s" % mean)
+    print("std: %s" % std)
+    data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std)
+
+    print('here-out')
+    print(to_json)
+    if isinstance(to_json, str):
+        with open(to_json, "w") as outfile:
+            json.dump(data, outfile, ensure_ascii=False, indent=4)
+        click.secho(f"Predictions saved in: {to_json}.", fg="yellow")
+
+    for i in range(len(scores)):
+        click.secho("Segment {} score: {:.3f}".format(i, scores[i]), fg="yellow")
+    click.secho(
+        "COMET system score: {:.3f}".format(sum(scores) / len(scores)), fg="yellow"
+    )
 
 @comet.command()
 @click.option(

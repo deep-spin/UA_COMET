@@ -19,6 +19,7 @@ from comet.metrics import RegressionReport
 from comet.models.model_base import ModelBase
 from comet.models.utils import average_pooling, max_pooling, move_to_cpu, move_to_cuda
 
+import statistics
 
 class Estimator(ModelBase):
     """
@@ -130,7 +131,7 @@ class Estimator(ModelBase):
             torch.cat([batch["val_target"]["score"] for batch in outputs]).cpu().numpy()
         )
         return self.metrics.compute(predictions, targets)
-
+    
     def get_sentence_embedding(
         self, tokens: torch.Tensor, lengths: torch.Tensor
     ) -> torch.Tensor:
@@ -196,12 +197,90 @@ class Estimator(ModelBase):
 
         return sentemb
 
+    def get_normalized_probs(
+        self,
+        samples: List[Dict[str, str]],
+        cuda: bool = False,
+        show_progress: bool = False,
+        batch_size: int = -1,
+    ) -> (float,float):
+        """Function that runs a model prediction, on a given sample and calculates the mean and variance of predictions
+        to calculate the normalised scores.
+
+        :param samples: List of dictionaries with 'mt' and 'ref' keys.
+        :param cuda: Flag that runs inference using 1 single GPU.
+        :param show_progress: Flag to show progress during inference of multiple examples.
+        :para batch_size: Batch size used during inference. By default uses the same batch size used during training.
+
+        :return: mean and standard deviation calculated on the provided samples
+        """
+
+        self.eval() #CZ: assuming we don't need dropout when calculating the z-norm
+        
+        batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
+        with torch.no_grad():
+            batches = [
+                samples[i : i + batch_size] for i in range(0, len(samples), batch_size)
+            ]
+            model_inputs = []
+            if show_progress:
+                pbar = tqdm(
+                    total=len(batches),
+                    desc="Preparing batches...",
+                    dynamic_ncols=True,
+                    leave=None,
+                )
+            for batch in batches:
+                batch = self.prepare_sample(batch, inference=True)
+                model_inputs.append(batch)
+                if show_progress:
+                    pbar.update(1)
+
+            if show_progress:
+                pbar.close()
+
+            if show_progress:
+                pbar = tqdm(
+                    total=len(batches),
+                    desc="Scoring hypothesis...",
+                    dynamic_ncols=True,
+                    leave=None,
+                )
+
+            scores = []
+            for model_input in model_inputs:
+                if cuda and torch.cuda.is_available():
+                    model_input = move_to_cuda(model_input)
+                    model_out = self.forward(**model_input)
+                    model_out = move_to_cpu(model_out)
+                else:
+                    model_out = self.forward(**model_input)
+
+                model_scores = model_out["score"].numpy().tolist()
+                for i in range(len(model_scores)):
+                    scores.append(model_scores[i][0])
+
+                if show_progress:
+                    pbar.update(1)
+
+            if show_progress:
+                pbar.close()
+
+        assert len(scores) == len(samples)
+        
+        mean = statistics.mean(scores)
+        std = statistics.stdev(scores)
+
+        return mean, std
+
     def predict(
         self,
         samples: List[Dict[str, str]],
         cuda: bool = False,
         show_progress: bool = False,
         batch_size: int = -1,
+        mean = 0,
+        stdev = 1,
     ) -> (Dict[str, Union[str, float]], List[float]):
         """Function that runs a model prediction,
 
@@ -272,7 +351,7 @@ class Estimator(ModelBase):
                     # print('model_scores: ', model_scores)
                     tmp = []
                     for i in range(len(model_scores)):
-                        tmp.append(model_scores[i][0])
+                        tmp.append((model_scores[i][0]-mean)/stdev)
                     tmp_scores.append(tmp)
 
                 for i in range(len(tmp_scores[0])):  # number of input sentences
