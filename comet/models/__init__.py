@@ -26,13 +26,15 @@ ZEUS_ip = '193.136.223.43'
 
 def get_cache_folder():
 
-    #CZ redirect cache: check server ip and redirect accordingly#
+    #CZ redirect cache: check server ip and redirect accordingly
+    #TG specify username: use username for cache directory
     ips = check_output(['hostname', '--all-ip-addresses'])
     ip = ips.decode().strip()
+    username = os.environ.get('USER')
     if HERA_ip in ip:
-        cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+        cache_directory = "/media/hdd1/" + username + "/.cache/torch/unbabel_comet/"
     elif ZEUS_ip in ip:
-        cache_directory = "/media/hdd1/chryssa" + "/.cache/torch/unbabel_comet/"
+        cache_directory = "/media/hdd1/" + username + "/.cache/torch/unbabel_comet/"
     elif "HOME" in os.environ:
         cache_directory = os.environ["HOME"] + "/.cache/torch/unbabel_comet/"
     else:
