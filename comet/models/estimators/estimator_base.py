@@ -217,6 +217,9 @@ class Estimator(ModelBase):
 
         self.eval() #CZ: assuming we don't need dropout when calculating the z-norm
         
+        if cuda and torch.cuda.is_available():
+            self.to("cuda")
+
         batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
         with torch.no_grad():
             batches = [
