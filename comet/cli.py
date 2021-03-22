@@ -146,9 +146,11 @@ def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
     data = [dict(zip(data, t)) for t in zip(*data.values())]
 
     model = load_checkpoint(model) if os.path.exists(model) else download_model(model)
-    mean, std = model.get_normalized_probs(data, cuda, show_progress=True, batch_size=batch_size)
-    print("mean: %s" % mean)
-    print("std: %s" % std)
+    # mean, std = model.get_normalized_probs(data, cuda, show_progress=True, batch_size=batch_size)
+    # print("mean: %s" % mean)
+    # print("std: %s" % std)
+    mean = 0.5226731677352325
+    std = 0.34382252223761584
     data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std)
 
     print('here-out')
