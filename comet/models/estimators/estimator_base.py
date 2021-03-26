@@ -303,15 +303,17 @@ class Estimator(ModelBase):
 
         if self.training:
             self.eval()
+        
+        self.train()
 
         if cuda and torch.cuda.is_available():
             self.to("cuda")
 
-        batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
-        # batch_size = 3
+        # batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
+        batch_size = 3
         with torch.no_grad():
             batches = [
-                samples[i : i + 3] for i in range(0, len(samples), 3)
+                samples[i : i + batch_size] for i in range(0, len(samples), batch_size)
             ]
             model_inputs = []
             if show_progress:
@@ -327,6 +329,7 @@ class Estimator(ModelBase):
 
                 if show_progress:
                     pbar.update(1)
+                    
 
             if show_progress:
                 pbar.close()
@@ -341,71 +344,33 @@ class Estimator(ModelBase):
 
             scores = []
             stds = []
-            n_refs = 3
-            for i in range(0, len(model_inputs), n_refs):
-                tmp_scores = []
-                print('run 30 rounds')
+            n_refs = 1
+            for model_input in model_inputs:  # iterate through batches
+                n_refs_scores = []
+                # print('run 30 rounds')
                 for j in range(30):  # self.n_stoch_runs
-                    n_refs_scores = []
-                    for model_input in model_inputs[i:i+n_refs]:
-                        if cuda and torch.cuda.is_available():
-                            model_input = move_to_cuda(model_input)
-                            model_out = self.forward(**model_input)
-                            model_out = move_to_cpu(model_out)
-                        else:
-                            model_out = self.forward(**model_input)
+                    if cuda and torch.cuda.is_available():
+                        model_input = move_to_cuda(model_input)
+                        model_out = self.forward(**model_input)
+                        model_out = move_to_cpu(model_out)
+                    else:
+                        model_out = self.forward(**model_input)
 
-                        model_scores = model_out["score"].numpy().tolist()
-                        # print('model_scores: ', model_scores)
-                        tmp = []
-                        for i in range(len(model_scores)):
-                            tmp.append((model_scores[i][0]-mean)/stdev)
-                        n_refs_scores.append(tmp)
-                    
-                    tmp_scores.append(np.mean(n_refs_scores, axis=0))
-                    
+                    model_scores = model_out["score"].numpy().tolist()  # list of lists [[score1], [score2], ...] len(model_input)
+                    tmp = [i[0] for i in model_scores] # list of scores [score1, score2, ...]
+                    n_refs_scores.append(tmp)
 
-                for i in range(len(tmp_scores[0])):  # number of input sentences
-                    scores.append(np.mean(list(map(itemgetter(i), tmp_scores))))
-                    stds.append(np.std(list(map(itemgetter(i), tmp_scores))))
+                for i in range(0, len(n_refs_scores[0]), n_refs): # iterate through number of samples in model_input
+                    scores += [np.mean(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
+                    stds += [np.std(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
 
                 if show_progress:
                     pbar.update(1)
 
-
-#  ---------------------------------------
-            # for model_input in model_inputs:
-            #     tmp_scores = []
-            #     print('run 30 rounds')
-            #     for i in range(30):  # self.n_stoch_runs
-            #         if cuda and torch.cuda.is_available():
-            #             model_input = move_to_cuda(model_input)
-            #             model_out = self.forward(**model_input)
-            #             model_out = move_to_cpu(model_out)
-            #         else:
-            #             model_out = self.forward(**model_input)
-
-            #         model_scores = model_out["score"].numpy().tolist()
-            #         # print('model_scores: ', model_scores)
-            #         tmp = []
-            #         for i in range(len(model_scores)):
-            #             tmp.append((model_scores[i][0]-mean)/stdev)
-            #         tmp_scores.append(tmp)
-
-            #     for i in range(len(tmp_scores[0])):  # number of input sentences
-            #         scores.append(np.mean(list(map(itemgetter(i), tmp_scores))))
-            #         stds.append(np.std(list(map(itemgetter(i), tmp_scores))))
-
-            #     # scores.append(list(map(itemgetter(0), tmp_scores)))
-            #     # scores.append(list(map(itemgetter(1), tmp_scores)))
-
-            #     if show_progress:
-            #         pbar.update(1)
-#  ---------------------------------------
-
             if show_progress:
                 pbar.close()
-      
+
+
         assert len(scores) == len(samples)
         for i in range(len(scores)):
             samples[i]["predicted_score_mean"] = scores[i]
