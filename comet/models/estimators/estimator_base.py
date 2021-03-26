@@ -295,17 +295,26 @@ class Estimator(ModelBase):
         :return: Dictionary with original samples, predicted scores and langid results for SRC and MT
             + list of predicted scores
         """
-        if not self.training:
-            print('enabling dropout during testime')
-            for m in self.modules():  # .modules():
-                if m.__class__.__name__.startswith('Dropout'):
-                    m.train()
+        #if not self.training:
+        #    print('enabling dropout during testime')
+        #    for m in self.modules():  # .modules():
+        #        if m.__class__.__name__.startswith('Dropout'):
+        #            m.train()
 
         if self.training:
             self.eval()
         
         self.train()
 
+        for name, module in self.named_parameters():
+            if 'scalar' in name and not 'parameter' in name:
+                module.dropout=0.0
+                module.eval()
+            if 'Dropout' in name:
+                module.p=0.0
+                module.eval()
+            if 'encoder' in name:
+                module.eval()
         if cuda and torch.cuda.is_available():
             self.to("cuda")
 
