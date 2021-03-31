@@ -111,6 +111,25 @@ def train(config):
     type=str,
     show_default=True,
 )
+@click.option(
+    "--n_refs",
+    default=1,
+    help="Number of references used during inference. By default number of references == 1.",
+    type=int,
+)
+@click.option(
+    "--n_dp_runs",
+    default=30,
+    help="Number of dropout runs at test time. By default 30.",
+    type=int,
+)
+@click.option(
+    "--seed",
+    default=12,
+    help="Seed. By default 12.",
+    type=int,
+)
+
 # #TODO CZ: calculate once and then just read mean/std?
 
 
@@ -138,7 +157,8 @@ def train(config):
 #     )
 
 
-def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
+def score(model, source, hypothesis, reference, cuda, batch_size, to_json, n_refs, n_dp_runs, seed):
+    seed_everything(seed)
     source = [s.strip() for s in source.readlines()]
     hypothesis = [s.strip() for s in hypothesis.readlines()]
     reference = [s.strip() for s in reference.readlines()]
@@ -151,7 +171,7 @@ def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
     # print("std: %s" % std)
     mean = 0.5226731677352325
     std = 0.34382252223761584
-    data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std)
+    data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std, n_refs=n_refs, n_dp_runs=n_dp_runs)
 
     print('here-out')
     print(to_json)

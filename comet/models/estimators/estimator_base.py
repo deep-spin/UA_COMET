@@ -282,6 +282,8 @@ class Estimator(ModelBase):
         cuda: bool = False,
         show_progress: bool = False,
         batch_size: int = -1,
+        n_refs: int = 1,
+        n_dp_runs: int = 30,
         mean = 0,
         stdev = 1,
     ) -> (Dict[str, Union[str, float]], List[float]):
@@ -310,7 +312,7 @@ class Estimator(ModelBase):
             self.to("cuda")
 
         # batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
-        batch_size = 3
+        batch_size = 1 * n_refs if n_refs != 1 else 3
         with torch.no_grad():
             batches = [
                 samples[i : i + batch_size] for i in range(0, len(samples), batch_size)
@@ -344,11 +346,9 @@ class Estimator(ModelBase):
 
             scores = []
             stds = []
-            n_refs = 1
             for model_input in model_inputs:  # iterate through batches
                 n_refs_scores = []
-                # print('run 30 rounds')
-                for j in range(30):  # self.n_stoch_runs
+                for j in range(n_dp_runs):  
                     if cuda and torch.cuda.is_available():
                         model_input = move_to_cuda(model_input)
                         model_out = self.forward(**model_input)
@@ -369,7 +369,6 @@ class Estimator(ModelBase):
 
             if show_progress:
                 pbar.close()
-
 
         assert len(scores) == len(samples)
         for i in range(len(scores)):
