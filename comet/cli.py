@@ -129,8 +129,30 @@ def train(config):
     help="Seed. By default 12.",
     type=int,
 )
-
-# #TODO CZ: calculate once and then just read mean/std?
+@click.option(
+    "--d_enc",
+    default=0.1,
+    help="dropout value for the encoder. Set to 0.0 to disable",
+    type=float,
+)
+@click.option(
+    "--d_pool",
+    default=0.1,
+    help="dropout value for the layerwise pooling layer. Set to 0.0 to disable",
+    type=float,
+)
+@click.option(
+    "--d_ff1",
+    default=0.1,
+    help="dropout value for the 1st feed forward layer. Set to 0.0 to disable",
+    type=float,
+)
+@click.option(
+    "--d_ff2",
+    default=0.1,
+    help="dropout value for the 2nd feed forward layer. Set to 0.0 to disable",
+    type=float,
+)
 
 
 # def score(model, source, hypothesis, reference, cuda, batch_size, to_json):
@@ -157,7 +179,7 @@ def train(config):
 #     )
 
 
-def score(model, source, hypothesis, reference, cuda, batch_size, to_json, n_refs, n_dp_runs, seed):
+def score(model, source, hypothesis, reference, cuda, batch_size, to_json, n_refs, n_dp_runs, seed, d_enc, d_pool, d_ff1, d_ff2):
     seed_everything(seed)
     source = [s.strip() for s in source.readlines()]
     hypothesis = [s.strip() for s in hypothesis.readlines()]
@@ -171,7 +193,8 @@ def score(model, source, hypothesis, reference, cuda, batch_size, to_json, n_ref
     # print("std: %s" % std)
     mean = 0.5226731677352325
     std = 0.34382252223761584
-    data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std, n_refs=n_refs, n_dp_runs=n_dp_runs)
+    data, scores = model.predict(data, cuda, show_progress=True, batch_size=batch_size, mean=mean, stdev=std, n_refs=n_refs, n_dp_runs=n_dp_runs, 
+     d_enc=d_enc, d_pool=d_pool, d_ff1=d_ff1, d_ff2=d_ff2)
 
     print('here-out')
     print(to_json)

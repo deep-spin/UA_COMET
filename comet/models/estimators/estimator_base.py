@@ -286,6 +286,10 @@ class Estimator(ModelBase):
         n_dp_runs: int = 30,
         mean = 0,
         stdev = 1,
+        d_enc = 0.0, 
+        d_pool = 0.0, 
+        d_ff1 = 0.0, 
+        d_ff2 = 0.0
     ) -> (Dict[str, Union[str, float]], List[float]):
         """Function that runs a model prediction,
 
@@ -308,15 +312,40 @@ class Estimator(ModelBase):
         
         self.train()
 
-        for name, module in self.named_parameters():
-            if 'scalar' in name and not 'parameter' in name:
-                module.dropout=0.0
-                module.eval()
-            if 'Dropout' in name:
-                module.p=0.0
-                module.eval()
-            if 'encoder' in name:
-                module.eval()
+        for name, module in self.named_modules():
+            print(name)
+                
+            if 'scalar_mix' in name and not 'parameter' in name:
+                if d_pool>0:
+                    module.dropout = d_pool
+                    module.train()
+                else:
+                    module.dropout = d_pool
+                    module.eval()
+            if 'ff.dropout_1' in name:
+                if d_ff1>0:
+                    module.p=d_ff1
+                    module.train()
+                else:
+                    module.p=0.0
+                    module.eval()
+            if 'ff.dropout_2' in name:
+                if d_ff2>0:
+                    module.p=d_ff1
+                    module.train()
+                else:
+                    module.p=0.0
+                    module.eval()
+            if 'sentence_encoder' in name and not 'embed' in name and not 'proj' in name and not 'layer_norm' in name and not 'fc' in name :
+                if not name in 'encoder.model.model.decoder.sentence_encoder.layers' :
+                    if d_enc>0:
+                        module.dropout=d_enc
+                        module.train()
+                    else:
+                        module.dropout=0.0
+                        module.eval()
+      
+        #exit(0)
         if cuda and torch.cuda.is_available():
             self.to("cuda")
 
