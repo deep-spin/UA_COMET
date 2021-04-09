@@ -301,11 +301,11 @@ class Estimator(ModelBase):
         :return: Dictionary with original samples, predicted scores and langid results for SRC and MT
             + list of predicted scores
         """
-        #if not self.training:
-        #    print('enabling dropout during testime')
-        #    for m in self.modules():  # .modules():
-        #        if m.__class__.__name__.startswith('Dropout'):
-        #            m.train()
+        if not self.training:
+           print('enabling dropout during testime')
+           for m in self.modules():  # .modules():
+               if m.__class__.__name__.startswith('Dropout'):
+                   m.train()
 
         if self.training:
             self.eval()
@@ -313,7 +313,7 @@ class Estimator(ModelBase):
         self.train()
 
         for name, module in self.named_modules():
-            print(name)
+            # print(name)
                 
             if 'scalar_mix' in name and not 'parameter' in name:
                 if d_pool>0:
@@ -350,7 +350,7 @@ class Estimator(ModelBase):
             self.to("cuda")
 
         # batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
-        batch_size = 1 * n_refs if n_refs != 1 else 3
+        batch_size = 2 * n_refs if n_refs != 1 else 3
         with torch.no_grad():
             batches = [
                 samples[i : i + batch_size] for i in range(0, len(samples), batch_size)
@@ -399,8 +399,19 @@ class Estimator(ModelBase):
                     n_refs_scores.append(tmp)
 
                 for i in range(0, len(n_refs_scores[0]), n_refs): # iterate through number of samples in model_input
-                    scores += [np.mean(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
-                    stds += [np.std(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
+                    data_slice = np.array(n_refs_scores)[:, i:i+n_refs]
+                    dp_runs_scores = [np.mean(data_slice[j]) for j in range(len(data_slice))]
+
+                    # system level
+                    scores += [dp_runs_scores]
+
+                    # scores += [np.mean(means_of_dp_runs)]*n_refs  # segment level
+                    # stds += [np.std(means_of_dp_runs)]*n_refs
+
+                # old version of computing mean and std  
+                # for i in range(0, len(n_refs_scores[0]), n_refs): # iterate through number of samples in model_input
+                #     scores += [np.mean(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
+                #     stds += [np.std(np.array(n_refs_scores)[:, i:i+n_refs])]*n_refs
 
                 if show_progress:
                     pbar.update(1)
@@ -408,10 +419,9 @@ class Estimator(ModelBase):
             if show_progress:
                 pbar.close()
 
-        assert len(scores) == len(samples)
-        for i in range(len(scores)):
-            samples[i]["predicted_score_mean"] = scores[i]
-            samples[i]["predicted_score_std"] = stds[i]
+        assert len(scores) == len(samples)/n_refs
+        for i, j in enumerate(range(0, len(samples), n_refs)):
+            samples[j]["dp_runs_scores"] = scores[i]
         return samples, scores
 
     def document_predict(
