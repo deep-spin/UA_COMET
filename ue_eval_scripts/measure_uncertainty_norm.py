@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from calibration import compute_calibration_error, optimize_calibration_error
+from calibration import compute_calibration_error_non_parametric, optimize_calibration_error_non_parametric
 import pandas as pd
 from tqdm import tqdm
 from scipy.stats import norm
@@ -13,6 +14,7 @@ import itertools
 from os import listdir
 from os.path import isfile, join
 from normalisation import compute_z_norm, compute_fixed_std
+from eval_metrics import compute_avgll
 
 
 def get_df(comet_dir, da_dir):
@@ -71,11 +73,12 @@ def batch_data(all_da, all_comet, all_comet_avg, batch_size=1):
     n = len(all_da) - (len(all_da) % batch_size)
     
     batch_da = all_da[:n].reshape(n//batch_size, batch_size).mean(axis=1)
+    batch_comet_scores = [i.mean(axis=0) for i in all_comet[:n, :].reshape(n//batch_size, batch_size, -1)]
     batch_comet_avg = all_comet_avg[:n].reshape(
         n//batch_size, batch_size).mean(axis=1)
     batch_comet_std = all_comet[:n, :].reshape(
         n//batch_size, batch_size, -1).mean(axis=1).std(axis=-1)
-    return batch_da, batch_comet_avg, batch_comet_std
+    return batch_da, batch_comet_scores, batch_comet_avg, batch_comet_std
 
 def standardize(scores_test, scores_dev, norm):
     norm_mean = 0.0
@@ -122,24 +125,45 @@ if __name__ == "__main__":
     # Create batches of different sizes. This simulates documents where the number
     # of sentences is the batch size. We should do this with actual documents.
     # When batch size = 1, this just computes correlations for each segment.
+    print('-- -- -- -- -- -- -- -- --')
     for batch_size in [1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
-        batch_da_test, batch_comet_avg_test, batch_comet_std_test = batch_data(
+        batch_da_test, batch_comet_scores_test, batch_comet_avg_test, batch_comet_std_test = batch_data(
             norm_da_test, norm_comet_test, norm_comet_avg_test, batch_size=batch_size)
-        batch_da_dev, batch_comet_avg_dev, batch_comet_std_dev = batch_data(
+        batch_da_dev, batch_comet_scores_dev, batch_comet_avg_dev, batch_comet_std_dev = batch_data(
             norm_da_dev, norm_comet_dev, norm_comet_avg_dev, batch_size=batch_size)
 
         # Compute fixed std to use as a baseline model
         fixed_std = compute_fixed_std(batch_comet_avg_dev, batch_da_dev)
         batch_baseline_stds_test = np.full_like(batch_comet_std_test, fixed_std)
         batch_baseline_stds_dev = np.full_like(batch_comet_std_dev, fixed_std)
+
         # Compute Pearson correlation between average COMET and DA.
-        print("Pearson batch size=%d - r= %f" % (
+        print("Pearson (COMET, DA) batch size =%d - r= %f" % (
             batch_size, stats.pearsonr(batch_comet_avg_test, batch_da_test)[0]))
+
+        # Compute Pearson correlation between |COMET - DA| and COMET_std
+        abs_diff = [abs(da - cs) for da, cs in zip(batch_da_test, batch_comet_avg_test)]
+        print("Pearson (|COMET-DA|, COMET_std) batch size =%d - r= %f" % (
+            batch_size, stats.pearsonr(abs_diff, batch_comet_std_test)[0]))
         # Compute calibration error by binning different confidence intervals.
+        # Non-parametric CE
+        calibration_error, gammas, matches = compute_calibration_error_non_parametric(
+            batch_da_test, batch_comet_scores_test)
+        print("Non-parametric CE = %f" % calibration_error)
+        # Best non-parametric CE 
+        scaling_vals = np.linspace(0.05, 1, 20)
+        _, best_scale_val = optimize_calibration_error_non_parametric(
+            batch_da_dev, batch_comet_scores_dev, scaling_vals=scaling_vals)
+        calibration_error, gammas, matches = compute_calibration_error_non_parametric(
+            batch_da_test, batch_comet_scores_test, scaling_val=best_scale_val)
+        print("Non-parametric CE = %f (calibrated, best_scaling_val=%f)" %
+              (calibration_error, best_scale_val))
+
+        # Parametric CE
         # It assumes a parametric Gaussian distribution for the COMET scores.
         calibration_error, gammas, matches = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-        print("Calibration error = %f" % calibration_error)
+        print("Parametric CE  = %f" % calibration_error)
         # Seek the best post-calibration to minimize calibration error.
         # The correction is std_transformed**2 = std_sum**2 + (std_scale*std)**2,
         # where std_sum and std_scale are correction parameters.
@@ -151,14 +175,25 @@ if __name__ == "__main__":
         calibration_error, gammas, matches_cal = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_comet_std_test,
             std_sum=std_sum, std_scale=std_scale)
-        print("Calibration error = %f (calibrated std_sum=%f, std_scale=%f)" %
+        print("Parametric CE = %f (calibrated std_sum=%f, std_scale=%f)" %
               (calibration_error, std_sum, std_scale))
         #####
         ## Compare to baseline
         base_calibration_error, gammas, base_matches = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
-        print("Baseline calibration error = %f (baseline std = %f)"  % (base_calibration_error, fixed_std))
-        
+        print("Baseline Parametric CE = %f (baseline std = %f)"  % (base_calibration_error, fixed_std))
+
+        # Compute ALL
+        avgll, negll = compute_avgll(batch_da_test, batch_comet_avg_test, batch_comet_std_test)       
+        print("ALL = %f" % avgll)
+        print("NLL = %f" % negll)
+        # Compute Baseline ALL
+        base_avgll, base_negll = compute_avgll(batch_da_test, batch_comet_avg_test, batch_baseline_stds_test)
+        print("Baseline ALL = %f" % base_avgll)
+        print("Baseline NLL = %f" % base_negll)
+        print()
+
+
         plt.xlabel('Confidence level $\gamma$')
         plt.ylabel('ECE')
         plt.title('1718 on '+test_year+' - Batch size = %d' % batch_size)
