@@ -183,11 +183,11 @@ if __name__ == "__main__":
             batch_da_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
         print("Baseline Parametric CE = %f (baseline std = %f)"  % (base_calibration_error, fixed_std))
 
-        # Compute ALL
+        # Compute ALL and NLL
         avgll, negll = compute_avgll(batch_da_test, batch_comet_avg_test, batch_comet_std_test)       
         print("ALL = %f" % avgll)
         print("NLL = %f" % negll)
-        # Compute Baseline ALL
+        # Compute Baseline ALL and NLL
         base_avgll, base_negll = compute_avgll(batch_da_test, batch_comet_avg_test, batch_baseline_stds_test)
         print("Baseline ALL = %f" % base_avgll)
         print("Baseline NLL = %f" % base_negll)
