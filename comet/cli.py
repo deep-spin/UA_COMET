@@ -32,7 +32,13 @@ def comet():
     required=True,
     help="Path to the configure YAML file",
 )
-def train(config):
+@click.option(
+    "--saving_file",
+    type=str,
+    required=True,
+    help="Path to the file where the model will be saved",
+)
+def train(config, saving_file):
     yaml_file = yaml.load(open(config).read(), Loader=yaml.FullLoader)
 
     # Build Trainer
@@ -61,6 +67,7 @@ def train(config):
     # Train model
     click.secho(f"{model.__class__.__name__} train starting:", fg="yellow")
     trainer.fit(model)
+    trainer.save_checkpoint(saving_file)
 
 
 @comet.command()
