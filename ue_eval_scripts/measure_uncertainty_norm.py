@@ -3,7 +3,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-from calibration import compute_calibration_error, optimize_calibration_error
+from calibration import *
 import pandas as pd
 from tqdm import tqdm
 from scipy.stats import norm
@@ -139,7 +139,21 @@ if __name__ == "__main__":
         # It assumes a parametric Gaussian distribution for the COMET scores.
         calibration_error, gammas, matches = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-        print("Calibration error = %f" % calibration_error)
+        mcpe, gammas, mcpe_matches = compute_mcpe(
+            batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1) 
+        sharpness = compute_sharpness(batch_comet_std_test, std_sum=0, std_scale=1)
+        epiw, gammas, epiw_matches = compute_epiw(
+            batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+        mpiw, gammas, mpiw_matches = compute_mpiw(
+            batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+        ence, ence_gammas, ence_matches = compute_ence(
+            batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+        print("ECE = %f" % calibration_error)
+        print("MCE = %f" % mcpe)
+        print("Sharpness = %f" % sharpness)
+        print("EPIW = %f" % epiw)
+        print("MPIW = %f" % mpiw)
+        print("ENCE = %f" % ence)
         # Seek the best post-calibration to minimize calibration error.
         # The correction is std_transformed**2 = std_sum**2 + (std_scale*std)**2,
         # where std_sum and std_scale are correction parameters.
@@ -151,26 +165,84 @@ if __name__ == "__main__":
         calibration_error, gammas, matches_cal = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_comet_std_test,
             std_sum=std_sum, std_scale=std_scale)
-        print("Calibration error = %f (calibrated std_sum=%f, std_scale=%f)" %
-              (calibration_error, std_sum, std_scale))
+        mcpe_cal, gammas, mcpe_matches_cal = compute_mcpe(
+            batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+        sharpness_cal = compute_sharpness(batch_comet_std_test, std_sum, std_scale)
+        epiw_cal, gammas, epiw_matches_cal = compute_epiw(
+            batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+        mpiw_cal, gammas, mpiw_matches_cal = compute_mpiw(
+            batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+        ence_cal, ence_gammas, ence_matches_cal = compute_ence(
+            batch_da_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+
+        print("Calibrated ECE = %f (calibrated std_sum=%f, std_scale=%f)"  % (calibration_error, std_sum, std_scale))
+        print("Calibrated MCE = %f (calibrated std_sum=%f, std_scale=%f)"  % (mcpe_cal, std_sum, std_scale))
+        print("Calibrated sharpness  = %f (calibrated std_sum=%f, std_scale=%f)"  % (sharpness_cal, std_sum, std_scale))
+        print("Calibrated epiw sharpness  = %f (calibrated std_sum=%f, std_scale=%f)"  % (epiw_cal, std_sum, std_scale))
+        print("Calibrated mpiw sharpness = %f (calibrated std_sum=%f, std_scale=%f)"  % (mpiw_cal,  std_sum, std_scale))
+        print("Calibrated ENCE = %f (calibrated std_sum=%f, std_scale=%f)"  % (ence_cal,  std_sum, std_scale))
         #####
         ## Compare to baseline
         base_calibration_error, gammas, base_matches = compute_calibration_error(
             batch_da_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
-        print("Baseline calibration error = %f (baseline std = %f)"  % (base_calibration_error, fixed_std))
+        mcpe_base, gammas, mcpe_matches_base = compute_mcpe(
+            batch_da_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
+        sharpness_base = compute_sharpness(batch_baseline_stds_test, std_sum=0, std_scale=1)
+        epiw_base, gammas, epiw_matches_base = compute_epiw(
+            batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
+        mpiw_base, gammas, mpiw_matches_base = compute_mpiw(
+            batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
+        ence_base, ence_gammas, ence_matches_base = compute_ence(
+            batch_da_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
+        print("Baseline ECE = %f (baseline std = %f)"  % (base_calibration_error, fixed_std))
+        print("Baseline MCE = %f (baseline std = %f)"  % (mcpe_base, fixed_std))
+        print("Baseline sharpness  = %f (baseline std = %f)"  % (sharpness_base, fixed_std))
+        print("Baseline epiw sharpness  = %f (baseline std = %f)"  % (epiw_base, fixed_std))
+        print("Baseline mpiw sharpness = %f (baseline std = %f)"  % (mpiw_base, fixed_std))
+        print("Baseline ENCE = %f (baseline std = %f)"  % (ence_base, fixed_std))
         
+
+ 
         plt.xlabel('Confidence level $\gamma$')
         plt.ylabel('ECE')
         plt.title('1718 on '+test_year+' - Batch size = %d' % batch_size)
         plt.plot(gammas, matches, 'b', label="Original ECE")
         plt.plot(gammas, matches_cal, 'r', label="Calibrated ECE")
         plt.plot(gammas, base_matches, 'g', label="Baseline ECE")
+        #plt.plot(gammas, mcpe_matches, 'b:', label="Original MPE")
+        #plt.plot(gammas, mcpe_matches_cal, 'r:', label="Calibrated MPE")
         plt.plot([0, 1], [0, 1], 'k--')
         plt.legend()
         plt.show()
-        plt.savefig('1718-'+test_year+'-calibration-base_bs_'+str(batch_size)+'.png')
+        plt.savefig('1718-'+test_year+'-ECE_bs_'+str(batch_size)+'.png')
         plt.close()
-        
+
+        plt.xlabel('Confidence level $\gamma$')
+        plt.ylabel('Sharpness')
+        plt.title('1718 on '+test_year+' - Batch size = %d' % batch_size)
+        plt.plot(gammas, epiw_matches, 'b', label="Original sharpness")
+        plt.plot(gammas, epiw_matches_cal, 'r', label="Calibrated sharpness")
+        plt.plot(gammas, epiw_matches_base, 'g', label="Baseline sharpness")
+        plt.plot(gammas, mpiw_matches, 'b:', label="Original max sharpness")
+        plt.plot(gammas, mpiw_matches_cal, 'r:', label="Calibrated max sharpness")
+        #plt.plot([0, 1], [0, 1], 'k--')
+        plt.legend()
+        plt.show()
+        plt.savefig('1718-'+test_year+'-SHARP_bs_'+str(batch_size)+'.png')
+        plt.close()
+       
+        plt.xlabel('Bins (ascending std values) $')
+        plt.ylabel('ENCE')
+        plt.title('1718 on '+test_year+' - Batch size = %d' % batch_size)
+        plt.plot(gammas, ence_matches, 'b', label="Original ENCE")
+        plt.plot(gammas, ence_matches_cal, 'r', label="Calibrated ENCE")
+        plt.plot(gammas, ence_matches_base, 'g', label="Baseline ENCE")
+        #plt.plot([0, 1], [0, 1], 'k--')
+        plt.legend()
+        plt.show()
+        plt.savefig('1718-'+test_year+'-ENCE_bs_'+str(batch_size)+'.png')
+        plt.close()
+
         # Compute Pearson correlation between average COMET and DA.
         #print("Pearson batch size=%d - r= %f" % (
         #    batch_size, stats.pearsonr(batch_comet_avg_test, batch_da_test)[0]))

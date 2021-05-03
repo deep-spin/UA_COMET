@@ -2,6 +2,7 @@ from scipy.special import erfinv
 import numpy as np
 import itertools
 from tqdm import tqdm
+import math
 def probit(p):
     return np.sqrt(2)*erfinv(2*p-1)
 
@@ -36,3 +37,100 @@ def optimize_calibration_error(target, mean, std, std_sums, std_scales,
             best_std_scale = std_scale
             best = calibration_error
     return best, best_std_sum, best_std_scale
+
+
+# from https://arxiv.org/pdf/2005.12496.pdf 
+def compute_sharpness(std, std_sum=0, std_scale=1):
+    
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    sharpness = np.mean(std_transformed**2)
+    return sharpness
+
+# from https://openreview.net/pdf?id=ryg8wpEtvB
+def compute_ence(target, mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    matches = []
+    gammas = np.linspace(0, len(target) , num_bins+1)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    sorted_idxs = np.argsort(std_transformed)
+    std_sorted = [std_transformed[i] for i in sorted_idxs]
+    mean_sorted = [mean[i] for i in sorted_idxs]
+    target_sorted = [target[i] for i in sorted_idxs]
+    for i,_ in enumerate(gammas):
+        if i+1<len(gammas):
+            lower = math.floor(gammas[i])
+            upper = math.floor(gammas[i+1])
+            bin_mean = np.asarray(mean_sorted[lower:upper])
+            bin_target = np.asarray(target_sorted[lower:upper])
+            bin_std = np.asarray(std_sorted[lower:upper])
+            
+            width = upper-lower
+            
+            rmse = np.sqrt(1/width * np.sum((bin_mean-bin_target)**2))
+            mvar = np.sqrt(1/width * np.sum(bin_std**2))
+            nse = np.abs((mvar-rmse)/mvar)
+            matches.append(nse)
+
+    ense = np.mean(matches)
+    
+    return ense, np.linspace(1, 100 , num_bins), matches
+
+# From https://arxiv.org/pdf/2006.10255.pdf
+def compute_ecpe(target, mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    calibration_error, gammas, matches = compute_calibration_error(
+        target, mean, std, std_sum, std_scale, num_bins)
+    return calibration_error, gammas, matches
+
+def compute_mcpe(target, mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    for gamma in gammas:
+        lower = mean + std_transformed * probit((1-gamma)/2)
+        upper = mean + std_transformed * probit((1+gamma)/2)
+        correct = np.logical_and(
+            lower <= target, target <= upper).sum() / len(target)
+        matches.append(correct)
+
+    calibration_error = np.max((np.abs(gammas - matches)))
+    return calibration_error, gammas, matches
+
+# sharpness related
+def compute_epiw(mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    for gamma in gammas:
+        lower = mean + std_transformed * probit((1-gamma)/2)
+        upper = mean + std_transformed * probit((1+gamma)/2)
+        width = upper-lower
+        msk = np.ma.masked_invalid(width)
+        width = np.ma.filled(msk, fill_value = 10)
+        matches.append(width.mean())
+   
+    sharpness = np.ma.masked_invalid(matches).mean()
+    
+    return sharpness, gammas, matches
+
+def compute_mpiw(mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    for gamma in gammas:
+        lower = mean + std_transformed * probit((1-gamma)/2)
+        upper = mean + std_transformed * probit((1+gamma)/2)
+        width = upper-lower
+        msk = np.ma.masked_invalid(width)
+        width = np.ma.filled(msk, fill_value = 10)
+        matches.append(width.max())
+
+    sharpness = np.ma.masked_invalid(matches).max()
+    
+    return sharpness, gammas, matches
+
+
