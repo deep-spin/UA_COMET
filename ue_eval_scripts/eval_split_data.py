@@ -29,33 +29,38 @@ def get_df(comet_dir, da_dir, nruns=100, docs=False):
         f = open(join(SETUP_PATH,s), 'r')
         data = json.loads(f.read()) 
         f.close() 
-
+        #print(len(data))
         system_name = '_'.join(s.split('.')[0].split('_')[1:])
         lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
         df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
         da_scores_ = da_scores[da_scores.system == system_name]
         df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
-
+        #print(len(df))
+        
         df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
         df['predicted_score_mean'] = df['dp_runs_scores'].apply(lambda x: np.mean(x)) # segment-level
         df['predicted_score_std'] = df['dp_runs_scores'].apply(lambda x: np.std(x)) # segment-level
         df['q-mu'] = np.abs(df['human_score'] - df['predicted_score_mean'])
-        df.drop(['ref_x', 'ref_y', 'lp', 'raw_score', 'annotators'], axis=1, inplace=True)
+        df.drop(['ref_x', 'ref_y', 'lp', 'annotators'], axis=1, inplace=True)
         dfs.append(df)
-        df_all = pd.concat(dfs)
-        df_all.reset_index(inplace=True)
+    df_all = pd.concat(dfs)
+    df_all.reset_index(inplace=True)
+        
+    if docs:
+        try:
+            #print('doc')
+            #print(df_all)
+            sys_doc_ids = df_all.sys_doc_id.unique().tolist()
+            doc_dp_runs_scores = [np.mean(df_all[df_all.sys_doc_id == i].dp_runs_scores.tolist(), axis=0) for i in sys_doc_ids]
+            doc_z_score = [np.mean(df_all[df_all.sys_doc_id == i].human_score.tolist()) for i in sys_doc_ids]
+            doc_sys = [df_all[df_all.sys_doc_id == i].system.unique()[0] for i in sys_doc_ids]
+            df_doc = pd.DataFrame(data=np.array([doc_sys, sys_doc_ids, doc_dp_runs_scores, doc_z_score]).T, columns=['system', 'doc_id','dp_runs_scores', 'human_score'])
+            df_doc.reset_index(inplace=True)
+            #print(df_doc)
 
-        if docs:
-            try:
-                sys_doc_ids = df_all.sys_doc_id.unique().tolist()
-                doc_dp_runs_scores = [np.mean(df_all[df_all.sys_doc_id == i].dp_runs_scores.tolist(), axis=0) for i in sys_doc_ids]
-                doc_z_score = [np.mean(df_all[df_all.sys_doc_id == i].human_score.tolist()) for i in sys_doc_ids]
-                doc_sys = [df_all[df_all.sys_doc_id == i].system.unique()[0] for i in sys_doc_ids]
-                df_doc = pd.DataFrame(data=np.array([doc_sys, sys_doc_ids, doc_dp_runs_scores, doc_z_score]).T, columns=['system', 'doc_id','dp_runs_scores', 'human_score'])
-                df_doc.reset_index(inplace=True)
-                return df_doc
-            except:
-                return df_all
+            return df_doc
+        except:
+            return df_all
    
     return df_all
 
@@ -151,7 +156,7 @@ def split_dev_test(comet_scores, scores, systems_list, dev_first):
         running_doc = ''
         for comet_doc_id, score_doc_id in zip(comet_sys_scores, sys_scores):
             assert(len(comet_sys_scores[comet_doc_id])== len(sys_scores[score_doc_id]))
-            if len(comet_scores_dev[system])< dev_len:
+            if len(comet_scores_dev[system]) < dev_len:
                 comet_scores_dev[system][comet_doc_id] = comet_sys_scores[comet_doc_id]
                 scores_dev[system][score_doc_id]=sys_scores[score_doc_id]
             else:
@@ -236,6 +241,9 @@ if __name__ == "__main__":
     #     systems_comet_scores_test, systems_scores_test, systems_comet_scores_dev, systems_scores_dev = split_dev_test(
     #         systems_comet_scores, systems_human_scores, systems_ext, args.dev_first)
 
+    print(len(systems_comet_scores_test))
+    print(len(systems_scores_test))
+    
     norm_human_test = standardize(systems_scores_test, systems_scores_dev, args.norm)
     norm_comet_test = standardize(systems_comet_scores_test, systems_comet_scores_dev, args.norm)
     norm_comet_avg_test = norm_comet_test.mean(axis=1)
