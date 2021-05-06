@@ -21,7 +21,7 @@ def compute_z_norm(scores):
     #pre_scores = [v for _,v in scores.items()]
     #print(pre_scores)
     #np_scores = np.array([val for d in pre_scores for (key,val) in d.items() ])
-    np_scores = np.array([val for _,sys in scores.items() for _,doc in sys.items() for key,val in doc.items() ])
+    np_scores = np.array([val for _,sys in scores.items() for _,doc in sys.items() for val in doc])
     print(np_scores.shape)
     #np_scores = np.asarray(scores)
     # if we have multi-dimensional array inscores (e.g. output of MCD) flatten first

@@ -6,10 +6,10 @@ import math
 
 NUM_BINS = 100
 
-def compute_calibration_error_non_parametric(target, scores, num_bins=NUM_BINS//5, scaling_val=1):
+def compute_calibration_error_non_parametric(target, scores, num_bins=NUM_BINS//5, scaling_val=1, scaling_sum=0):
     matches = []
     gammas = np.linspace(0, 1, num_bins)
-    scores = [np.array(sorted(i))/scaling_val for i in scores]
+    scores = [(np.array(sorted(i))/scaling_val)+scaling_sum for i in scores]
     for gamma in tqdm(gammas):   
         # scores = [np.array(sorted(i))/scaling_val for i in scores]
         lower = [np.quantile(s, (1-gamma)/2) for s in scores]
@@ -21,15 +21,16 @@ def compute_calibration_error_non_parametric(target, scores, num_bins=NUM_BINS//
     return calibration_error, gammas, matches
 
 
-def optimize_calibration_error_non_parametric(target, scores, scaling_vals, num_bins=NUM_BINS//5):
+def optimize_calibration_error_non_parametric(target, scores, scaling_vals, scaling_sums, num_bins=NUM_BINS//5):
     best = np.inf
     best_scale = np.nan
     for scaling_val in tqdm(scaling_vals):
-        calibration_error, _, _ = compute_calibration_error_non_parametric(
-            target, scores, num_bins, scaling_val)
-        if calibration_error < best:
-            best_scale = scaling_val
-            best = calibration_error
+        for scaling_sum in tqdm(scaling_sums):
+            calibration_error, _, _ = compute_calibration_error_non_parametric(
+                target, scores, num_bins, scaling_val, scaling_sum)
+            if calibration_error < best:
+                best_scale = scaling_val
+                best = calibration_error
     return best, best_scale
 
 
@@ -76,6 +77,7 @@ def compute_sharpness(std, std_sum=0, std_scale=1):
     sharpness = np.mean(std_transformed**2)
     return sharpness
 
+
 # from https://openreview.net/pdf?id=ryg8wpEtvB
 def compute_ence(target, mean, std, std_sum=0, std_scale=1,
                               num_bins=100):
@@ -95,15 +97,82 @@ def compute_ence(target, mean, std, std_sum=0, std_scale=1,
             bin_std = np.asarray(std_sorted[lower:upper])
             
             width = upper-lower
+            epsilon=0.001
+            if not width>0.0:
+                width = epsilon
             
             rmse = np.sqrt(1/width * np.sum((bin_mean-bin_target)**2))
             mvar = np.sqrt(1/width * np.sum(bin_std**2))
             nse = np.abs((mvar-rmse)/mvar)
             matches.append(nse)
 
-    ense = np.mean(matches)
+    ence = np.mean(matches)
     
-    return ense, np.linspace(1, 100 , num_bins), matches
+    return ence, np.linspace(1, 100 , num_bins), matches
+
+
+# from https://openreview.net/pdf?id=ryg8wpEtvB
+def compute_ence_rn(target, mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    matches = []
+    gammas = np.linspace(0, len(target) , num_bins+1)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    sorted_idxs = np.argsort(std_transformed)
+    std_sorted = [std_transformed[i] for i in sorted_idxs]
+    mean_sorted = [mean[i] for i in sorted_idxs]
+    target_sorted = [target[i] for i in sorted_idxs]
+    for i,_ in enumerate(gammas):
+        if i+1<len(gammas):
+            lower = math.floor(gammas[i])
+            upper = math.floor(gammas[i+1])
+            bin_mean = np.asarray(mean_sorted[lower:upper])
+            bin_target = np.asarray(target_sorted[lower:upper])
+            bin_std = np.asarray(std_sorted[lower:upper])
+            
+            width = upper-lower
+            epsilon=0.001
+            if not width>0.0:
+                width = epsilon
+            rmse = np.sqrt(1/width * np.sum((bin_mean-bin_target)**2))
+            mvar = np.sqrt(1/width * np.sum(bin_std**2))
+            nse = np.abs((mvar-rmse)/rmse)
+            matches.append(nse)
+
+    ence_rn = np.mean(matches)
+    
+    return ence_rn, np.linspace(1, 100 , num_bins), matches
+
+# from https://openreview.net/pdf?id=ryg8wpEtvB
+def compute_ence_nn(target, mean, std, std_sum=0, std_scale=1,
+                              num_bins=100):
+    matches = []
+    gammas = np.linspace(0, len(target) , num_bins+1)
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
+    sorted_idxs = np.argsort(std_transformed)
+    std_sorted = [std_transformed[i] for i in sorted_idxs]
+    mean_sorted = [mean[i] for i in sorted_idxs]
+    target_sorted = [target[i] for i in sorted_idxs]
+    for i,_ in enumerate(gammas):
+        if i+1<len(gammas):
+            lower = math.floor(gammas[i])
+            upper = math.floor(gammas[i+1])
+            bin_mean = np.asarray(mean_sorted[lower:upper])
+            bin_target = np.asarray(target_sorted[lower:upper])
+            bin_std = np.asarray(std_sorted[lower:upper])
+            
+            width = upper-lower
+            epsilon=0.001
+            if not width>0.0:
+                width = epsilon
+            
+            rmse = np.sqrt(1/width * np.sum((bin_mean-bin_target)**2))
+            mvar = np.sqrt(1/width * np.sum(bin_std**2))
+            nse = np.abs((mvar-rmse))
+            matches.append(nse)
+
+    ence_nn = np.mean(matches)
+    
+    return ence_nn, np.linspace(1, 100 , num_bins), matches
 
 # From https://arxiv.org/pdf/2006.10255.pdf
 def compute_ecpe(target, mean, std, std_sum=0, std_scale=1,
