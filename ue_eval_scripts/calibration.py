@@ -24,14 +24,15 @@ def compute_calibration_error_non_parametric(target, scores, num_bins=NUM_BINS//
 def optimize_calibration_error_non_parametric(target, scores, scaling_vals, scaling_sums, num_bins=NUM_BINS//5):
     best = np.inf
     best_scale = np.nan
-    for scaling_val in tqdm(scaling_vals):
-        for scaling_sum in tqdm(scaling_sums):
-            calibration_error, _, _ = compute_calibration_error_non_parametric(
-                target, scores, num_bins, scaling_val, scaling_sum)
-            if calibration_error < best:
-                best_scale = scaling_val
-                best = calibration_error
-    return best, best_scale
+    best_sum = np.nan
+    for (scaling_sum, scaling_val) in tqdm(itertools.product(scaling_sums, scaling_vals)):
+        calibration_error, _, _ = compute_calibration_error_non_parametric(
+            target, scores, num_bins, scaling_val, scaling_sum)
+        if calibration_error < best:
+            best_scale = scaling_val
+            best_sum = scaling_sum
+            best = calibration_error
+    return best, best_scale, best_sum
 
 
 def probit(p):
