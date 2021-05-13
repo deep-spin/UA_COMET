@@ -460,18 +460,18 @@ if __name__ == "__main__":
                     batch_human_test, batch_comet_scores_test)
                 print("Non-parametric CE = %f" % np_calibration_error)
                 # Best non-parametric CE 
-                # np_scaling_vals = np.linspace(0.05, 1, 10)
-                # np_scaling_sums = np.linspace(-10, 0, 10)
-                # _, best_scale_val, best_scale_sum = optimize_calibration_error_non_parametric(
-                #     batch_human_dev, batch_comet_scores_dev, scaling_vals=np_scaling_vals, scaling_sums=np_scaling_sums)
-                # np_calibration_error, np_gammas, np_matches = compute_calibration_error_non_parametric(
-                #     batch_human_test, batch_comet_scores_test, scaling_val=best_scale_val, scaling_sum=best_scale_sum)
-                # print("Non-parametric CE = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
-                #     (np_calibration_error, best_scale_val, best_scale_sum))
+                np_scaling_vals = np.linspace(0.05, 1, 10)
+                np_scaling_sums = np.linspace(-10, 0, 10)
+                _, best_scale_val, best_scale_sum = optimize_calibration_error_non_parametric(
+                    batch_human_dev, batch_comet_scores_dev, scaling_vals=np_scaling_vals, scaling_sums=np_scaling_sums)
+                np_calibration_error, np_gammas, np_matches = compute_calibration_error_non_parametric(
+                    batch_human_test, batch_comet_scores_test, scaling_val=best_scale_val, scaling_sum=best_scale_sum)
+                print("Non-parametric CE = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
+                    (np_calibration_error, best_scale_val, best_scale_sum))
 
-                # np_sharpness_cal = compute_epiw(batch_comet_scores_test, batch_comet_avg_test, batch_comet_std_test, std_sum=best_scale_sum, std_scale=best_scale_val)
-                # print("Non-parametric Sharpness = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
-                #     (np_sharpness_cal, best_scale_val, best_scale_sum))
+                np_sharpness_cal = compute_epiw(batch_comet_scores_test, batch_comet_avg_test, batch_comet_std_test, std_sum=best_scale_sum, std_scale=best_scale_val)
+                print("Non-parametric Sharpness = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
+                    (np_sharpness_cal, best_scale_val, best_scale_sum))
 
                 ############# LATEX #################
                 print()
