@@ -15,42 +15,45 @@ from os import listdir
 from os.path import isfile, join
 from normalisation import compute_z_norm, compute_fixed_std
 import copy
+import ast
 
 
 def get_df(comet_dir, da_dir, nruns=100, docs=False):
     SETUP_PATH = comet_dir
-    files = [f for f in listdir(SETUP_PATH) if isfile(join(SETUP_PATH, f))]
-    sys_files = [f for f in files if (f.split('_')[0] == 'system') and ('Human' not in f)]
-    da_scores = pd.read_csv(da_dir)
-    da_scores.system = da_scores.system.apply(lambda x: x.split('.')[0])
-
-    dfs = []
-
     if args.score_type.lower() == 'da' or args.score_type.lower() == 'mqm':
-        for s in sys_files:
-            f = open(join(SETUP_PATH,s), 'r')
-            data = json.loads(f.read()) 
-            f.close() 
-            system_name = '_'.join(s.split('.')[0].split('_')[1:])
-            lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
-            df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
-            da_scores_ = da_scores[da_scores.system == system_name]
-            df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
-            df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
-            df.drop(['ref_x', 'ref_y', 'lp', 'annotators'], axis=1, inplace=True)
-            dfs.append(df)
-        df_all = pd.concat(dfs)
-        df_all.reset_index(inplace=True)
+        if args.ensemble:
+            df_all = pd.read_csv(SETUP_PATH)
+            df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('|')])
+        else:
+            files = [f for f in listdir(SETUP_PATH) if isfile(join(SETUP_PATH, f))]
+            sys_files = [f for f in files if (f.split('_')[0] == 'system') and ('Human' not in f)]
+            da_scores = pd.read_csv(da_dir)
+            da_scores.system = da_scores.system.apply(lambda x: x.split('.')[0])
+            dfs = []
+            for s in sys_files:
+                f = open(join(SETUP_PATH,s), 'r')
+                data = json.loads(f.read()) 
+                f.close() 
+                system_name = '_'.join(s.split('.')[0].split('_')[1:])
+                lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
+                df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
+                da_scores_ = da_scores[da_scores.system == system_name]
+                df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
+                # df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
+                df.drop(['ref_x', 'ref_y', 'lp', 'annotators'], axis=1, inplace=True)
+                dfs.append(df)
+            df_all = pd.concat(dfs)
+            df_all.reset_index(inplace=True)
 
     elif args.score_type.lower() == 'hter':
-        # - - - uncomment for QT21 - - - 
         df_all = pd.read_csv(SETUP_PATH)
-        df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('[')[1].split(']')[0].split(', ')])
+        if args.ensemble:
+            df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('|')])
+        else:
+            # df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('[')[1].split(']')[0].split(', ')])
+            df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: ast.literal_eval(x))
         df_all.doc_id = df_all.doc_id.apply(lambda x: int(x))
-        df_all.drop(['ref', 'src', 'mt', 'pe', 'lp'], axis=1, inplace=True)
-
-    # - - -  uncomment for ensembles - - - 
-    # df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('|')])
+        df_all.drop(['ref', 'src', 'mt', 'pe'], axis=1, inplace=True)
         
     if docs:
         try:
@@ -228,6 +231,8 @@ if __name__ == "__main__":
                         help= 'select how many drpout runs to evaluate')
     parser.add_argument('--baseline', default=False, action='store_true',
                         help= 'select to evaluate the baseline only')
+    parser.add_argument('--ensemble', default=False, action='store_true',
+                        help= 'specify that you are evaluating ensemble merged data')
     args = parser.parse_args()
     
     test_year='2020'
@@ -246,6 +251,9 @@ if __name__ == "__main__":
     sharpness_cal_folds = []
     pearson_acc_folds = []
     pearson_d1_cal_folds = []
+
+    np_calibration_error_folds = []
+    np_sharpness_cal_folds = []
 
     for i, fold in enumerate(k_folds):
         keys = np.arange(len(k_folds))  # 0,1,2,3,4
@@ -337,21 +345,23 @@ if __name__ == "__main__":
             else:
                 # Parametric CE
                 # It assumes a parametric Gaussian distribution for the COMET scores.
+                
                 calibration_error, gammas, matches = compute_calibration_error(
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                mcpe, gammas, mcpe_matches = compute_mcpe(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1) 
-                sharpness = compute_sharpness(batch_comet_std_test, std_sum=0, std_scale=1)
-                epiw, gammas, epiw_matches = compute_epiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                mpiw, gammas, mpiw_matches = compute_mpiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                ence, ence_gammas, ence_matches = compute_ence(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                ence_rn, ence_gammas_rn, ence_matches_rn = compute_ence_rn(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                ence_nn, ence_gammas_nn, ence_matches_nn = compute_ence_nn(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                # mcpe, gammas, mcpe_matches = compute_mcpe(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1) 
+                # sharpness = compute_sharpness(batch_comet_std_test, std_sum=0, std_scale=1)
+                # epiw, gammas, epiw_matches = compute_epiw(
+                #     batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                # mpiw, gammas, mpiw_matches = compute_mpiw(
+                #     batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                # ence, ence_gammas, ence_matches = compute_ence(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                # ence_rn, ence_gammas_rn, ence_matches_rn = compute_ence_rn(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                # ence_nn, ence_gammas_nn, ence_matches_nn = compute_ence_nn(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+
                 # print("ECE = %f" % calibration_error)
                 # print("MCE = %f" % mcpe)
                 # print("Sharpness = %f" % sharpness)
@@ -408,19 +418,19 @@ if __name__ == "__main__":
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test,
                     std_sum=std_sum, std_scale=std_scale)
                 
-                mcpe_cal, gammas, mcpe_matches_cal = compute_mcpe(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # mcpe_cal, gammas, mcpe_matches_cal = compute_mcpe(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
                 sharpness_cal = compute_sharpness(batch_comet_std_test, std_sum, std_scale)
-                epiw_cal, gammas, epiw_matches_cal = compute_epiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
-                mpiw_cal, gammas, mpiw_matches_cal = compute_mpiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
-                ence_cal, ence_gammas, ence_matches_cal = compute_ence(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
-                ence_cal_rn, ence_gammas_rn, ence_matches_cal_rn = compute_ence_rn(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
-                ence_cal_nn, ence_gammas_nn, ence_matches_cal_nn = compute_ence_nn(
-                    batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # epiw_cal, gammas, epiw_matches_cal = compute_epiw(
+                #     batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # mpiw_cal, gammas, mpiw_matches_cal = compute_mpiw(
+                #     batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # ence_cal, ence_gammas, ence_matches_cal = compute_ence(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # ence_cal_rn, ence_gammas_rn, ence_matches_cal_rn = compute_ence_rn(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                # ence_cal_nn, ence_gammas_nn, ence_matches_cal_nn = compute_ence_nn(
+                #     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
 
                 # print("Calibrated ECE = %f (calibrated std_sum=%f, std_scale=%f)"  % (calibration_error, std_sum, std_scale))
                 # print("Calibrated MCE = %f (calibrated std_sum=%f, std_scale=%f)"  % (mcpe_cal, std_sum, std_scale))
@@ -442,14 +452,6 @@ if __name__ == "__main__":
                 print("Calibrated ALL = %f" % cal_avgll)
                 print("Calibrated NLL = %f" % cal_negll)
 
-                ############# LATEX #################
-                print('----------LATEX OUTPUTS----------')
-                print('& average NLL & ECE & Sharpness \\\\')
-                print('& %f & %f & %f  \\\\' % (np.round(cal_avgll, 3), np.round(calibration_error, 3), np.round(sharpness_cal, 3)))
-                print('& r(human, pred) & r(|pred-human|,std) \\\\')
-                print('& %f & %f   \\\\' % (np.round(pearson_acc,3), np.round(pearson_d1_cal,3)))
-
-
 
                 ################### NON PRARAMETRIC ##################
                 # Compute calibration error by binning different confidence intervals.
@@ -458,36 +460,53 @@ if __name__ == "__main__":
                     batch_human_test, batch_comet_scores_test)
                 print("Non-parametric CE = %f" % np_calibration_error)
                 # Best non-parametric CE 
-                # np_scaling_vals = np.linspace(0.05, 1, 20)
-                # np_scaling_sums = np.linspace(0.0, 1, 20)
-                # _, best_scale_val = optimize_calibration_error_non_parametric(
+                # np_scaling_vals = np.linspace(0.05, 1, 10)
+                # np_scaling_sums = np.linspace(-10, 0, 10)
+                # _, best_scale_val, best_scale_sum = optimize_calibration_error_non_parametric(
                 #     batch_human_dev, batch_comet_scores_dev, scaling_vals=np_scaling_vals, scaling_sums=np_scaling_sums)
                 # np_calibration_error, np_gammas, np_matches = compute_calibration_error_non_parametric(
-                #     batch_human_test, batch_comet_scores_test, scaling_val=best_scale_val)
-                # print("Non-parametric CE = %f (calibrated, best_scaling_val=%f)" %
-                #     (np_calibration_error, best_scale_val))
+                #     batch_human_test, batch_comet_scores_test, scaling_val=best_scale_val, scaling_sum=best_scale_sum)
+                # print("Non-parametric CE = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
+                #     (np_calibration_error, best_scale_val, best_scale_sum))
+
+                # np_sharpness_cal = compute_epiw(batch_comet_scores_test, batch_comet_avg_test, batch_comet_std_test, std_sum=best_scale_sum, std_scale=best_scale_val)
+                # print("Non-parametric Sharpness = %f (calibrated, best_scaling_val=%f, best_scaling_sum=%f)" %
+                #     (np_sharpness_cal, best_scale_val, best_scale_sum))
+
+                ############# LATEX #################
+                print()
+                print('----------LATEX OUTPUTS----------')
+                print('& average NLL & ECE & Sharpness \\\\')
+                print('& %f & %f & %f  \\\\' % (cal_avgll, calibration_error, sharpness_cal))
+                print('& r(human, pred) & r(|pred-human|,std) \\\\')
+                print('& %f & %f   \\\\' % (pearson_acc, pearson_d1_cal))
+                # print('& ECE_np & Sharpness_np \\\\')
+                # print('& %f & %f   \\\\' % (np_calibration_error, np_sharpness_cal))
         
                 cal_avgll_folds.append(cal_avgll)
                 calibration_error_folds.append(calibration_error)
                 sharpness_cal_folds.append(sharpness_cal)
                 pearson_acc_folds.append(pearson_acc)
                 pearson_d1_cal_folds.append(pearson_d1_cal)
+                # np_calibration_error_folds.append(np_calibration_error)
+                # np_sharpness_cal_folds.append(np_sharpness_cal)
 
     if args.baseline:
         print()
-        print('------averaged over k folds------')
+        print('------AVERAGED OVER k FOLDS------')
         print('----------LATEX OUTPUTS----------')
         print('& average NLL & ECE & Sharpness \\\\')
-        print('& %f & %f & %f  \\\\' % (np.mean(cal_avgll_folds), np.mean(calibration_error_folds), np.mean(sharpness_cal_folds)))
+        print('& %.3f & %.3f & %.3f  \\\\' % (round(np.mean(cal_avgll_folds),3), round(np.mean(calibration_error_folds),3), round(np.mean(sharpness_cal_folds),3)))
     else:
         print()
-        print(cal_avgll_folds)
-        print('------averaged over k folds------')
+        print('------AVERAGED OVER k FOLDS------')
         print('----------LATEX OUTPUTS----------')
         print('& average NLL & ECE & Sharpness \\\\')
-        print('& %f & %f & %f  \\\\' % (np.mean(cal_avgll_folds), np.mean(calibration_error_folds), np.mean(sharpness_cal_folds)))
+        print('& %.3f & %.3f & %.3f  \\\\' % (round(np.mean(cal_avgll_folds),3), round(np.mean(calibration_error_folds),3), round(np.mean(sharpness_cal_folds),3)))
         print('& r(human, pred) & r(|pred-human|,std) \\\\')
-        print('& %f & %f   \\\\' % (np.mean(pearson_acc_folds), np.mean(pearson_d1_cal_folds)))
+        print('& %.3f & %.3f   \\\\' % (round(np.mean(pearson_acc_folds),3), round(np.mean(pearson_d1_cal_folds),3)))
+        # print('& ECE_np & Sharpness_np \\\\')
+        # print('& %.3f & %.3f   \\\\' % (round(np.mean(np_calibration_error_folds),3), round(np.mean(np_sharpness_cal_folds),3)))
 
         ################## FIGURES #################
         # plt.xlabel('Confidence level $\gamma$')
