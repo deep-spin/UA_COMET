@@ -305,7 +305,7 @@ if __name__ == "__main__":
     norm_human_avg_test_sort,  sorted_index_test = (list(t) for t in zip(*sorted(zip(norm_human_avg_test, sample_index_text))))
     norm_human_avg_dev_sort,  sorted_index_dev = (list(t) for t in zip(*sorted(zip(norm_human_avg_dev, sample_index_dev))))
     print('test size %d' % (len(norm_human_avg_test_sort)))
-    batches = [1, 5, 10, 15]
+    batches = [1, 10]
 
     precision = [5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     recall    = [5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
@@ -488,14 +488,14 @@ if __name__ == "__main__":
         ap_cu.append(compute_ap(sorted_comet_truth, sorted_index_test, n))
 
         print('---------------------save-------------------------------')
-        print(prec_out_comet)
-        print(prec_out_comet_u)
-        print(prect_out_comet)
-        print(prect_out_comet_u)
-        print(rec_out_comet)
-        print(rec_out_comet_u)
-        print(rect_out_comet)
-        print(rect_out_comet_u)
+        #print(prec_out_comet)
+        #print(prec_out_comet_u)
+        print(oprect_out_comet)
+        print(oprect_out_comet_u)
+        #print(rec_out_comet)
+        #print(rec_out_comet_u)
+        print(orect_out_comet)
+        print(orect_out_comet_u)
         print('---------------------save-------------------------------')
 
 

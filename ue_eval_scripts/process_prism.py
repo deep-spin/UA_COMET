@@ -27,6 +27,7 @@ def find_idx(sent, sents):
     exit(0)
     return index
 
+
 def reorder(s_sents, h_sents, ordered_file):
     ordered = []
     reordered_src=[]
@@ -43,8 +44,6 @@ def reorder(s_sents, h_sents, ordered_file):
             reordered_src.append(s_sents[i])
             reordered_tgt.append(h_sents[i])
     return reordered_src, reordered_tgt
-
-
 
 
 def detokenize(sentence):
@@ -92,7 +91,6 @@ if __name__ == "__main__":
                         help='path to comet setup to test on')
     parser.add_argument('--alpha', type=str, 
                         help='alpha')
-  
 
     args = parser.parse_args()
     
