@@ -74,11 +74,11 @@ This will run the model with a set of hyperparameters defined above. Here is the
 `--to_json`: Creates and exports model predictions to a JSON file.     
 `--n_refs`: default=1. Number of references used during inference.   
 `--n_dp_runs`: default=30. Number of dropout runs at test time.     
-`--d_enc`: default=0.1. Dropout value for the encoder. Set to 0.0 to disable.     
-`--d_pool`: default=0.1. Dropout value for the layerwise pooling layer. Set to 0.0 to disable.      
-`--d_ff1`: default=0.1. Dropout value for the 1st feed forward layer. Set to 0.0 to disable      
-`--d_ff2`: default=0.1. Dropout value for the 2nd feed forward layer. Set to 0.0 to disable
-`--model`: Name of the pretrained model OR path to a model checkpoint.
+`--d_enc`: default=0.1. Dropout value for the encoder.     
+`--d_pool`: default=0.1. Dropout value for the layerwise pooling layer.       
+`--d_ff1`: default=0.1. Dropout value for the 1st feed forward layer.        
+`--d_ff2`: default=0.1. Dropout value for the 2nd feed forward layer.       
+`--model`: Name of the pretrained model OR path to a model checkpoint.     
 
 To know more about the rest of the parameters and their default values, take a look at the ```comet/cli.py``` file.
 
