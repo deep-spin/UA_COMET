@@ -79,7 +79,7 @@ To run COMET with multiple MCD runs:
  
 GPU_N=3
 
-SETUP=/path/to/your/result/folder
+SCORES=/path/to/your/result/folder
 DATA=/path/to/your/data/folder
 
 N=100
@@ -87,6 +87,7 @@ D=0.1
 N_REFS=1
 
 SRC=src.txt
+MT=mt.txt
 REF=ref.txt
 
 MODEL=wmt-large-da-estimator-1719
@@ -95,9 +96,9 @@ echo Starting the process...
 
 CUDA_VISIBLE_DEVICES=$GPU_N comet score \
   -s $DATA/sources/$SRC \
-  -h $DATA/system-outputs/mt.txt \
+  -h $DATA/system-outputs/$MT \
   -r $DATA/references/$REF \
-  --to_json $SETUP/system_Online-A.json \
+  --to_json $SCORES/filename.json \
   --n_refs $N_REFS \
   --n_dp_runs $N \
   --d_enc $D \
