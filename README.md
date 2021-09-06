@@ -28,7 +28,49 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-## How to Run
+## Scoring MT outputs:
+
+### Via Bash:
+
+Examples from WMT20:
+
+```bash
+echo -e "Dem Feuer konnte Einhalt geboten werden\nSchulen und Kindergärten wurden eröffnet." >> src.de
+echo -e "The fire could be stopped\nSchools and kindergartens were open" >> hyp.en
+echo -e "They were able to control the fire.\nSchools and kindergartens opened" >> ref.en
+```
+
+```bash
+comet score -s src.de -h hyp.en -r ref.en
+```
+
+You can export your results to a JSON file using the `--to_json` flag and select another model/metric with `--model`.
+
+```bash
+comet score -s src.de -h hyp.en -r ref.en --model wmt-large-hter-estimator --to_json segments.json
+```
+
+### Via Python:
+
+```python
+from comet.models import download_model
+model = download_model("wmt-large-da-estimator-1719")
+data = [
+    {
+        "src": "Dem Feuer konnte Einhalt geboten werden",
+        "mt": "The fire could be stopped",
+        "ref": "They were able to control the fire."
+    },
+    {
+        "src": "Schulen und Kindergärten wurden eröffnet.",
+        "mt": "Schools and kindergartens were open",
+        "ref": "Schools and kindergartens opened"
+    }
+]
+model.predict(data, cuda=True, show_progress=True)
+```
+
+## Scoring MT outputs with MCD runs
 
 To run COMET with multiple MCD runs:
 
@@ -99,49 +141,7 @@ link to translations
 
 pointer to jupyter notebook
 
-## Scoring MT outputs:
-
-### Via Bash:
-
-Examples from WMT20:
-
-```bash
-echo -e "Dem Feuer konnte Einhalt geboten werden\nSchulen und Kindergärten wurden eröffnet." >> src.de
-echo -e "The fire could be stopped\nSchools and kindergartens were open" >> hyp.en
-echo -e "They were able to control the fire.\nSchools and kindergartens opened" >> ref.en
-```
-
-```bash
-comet score -s src.de -h hyp.en -r ref.en
-```
-
-You can export your results to a JSON file using the `--to_json` flag and select another model/metric with `--model`.
-
-```bash
-comet score -s src.de -h hyp.en -r ref.en --model wmt-large-hter-estimator --to_json segments.json
-```
-
-### Via Python:
-
-```python
-from comet.models import download_model
-model = download_model("wmt-large-da-estimator-1719")
-data = [
-    {
-        "src": "Dem Feuer konnte Einhalt geboten werden",
-        "mt": "The fire could be stopped",
-        "ref": "They were able to control the fire."
-    },
-    {
-        "src": "Schulen und Kindergärten wurden eröffnet.",
-        "mt": "Schools and kindergartens were open",
-        "ref": "Schools and kindergartens opened"
-    }
-]
-model.predict(data, cuda=True, show_progress=True)
-```
-
-### Simple Pythonic way to convert list or segments to model inputs:
+<!-- ### Simple Pythonic way to convert list or segments to model inputs:
 
 ```python
 source = ["Dem Feuer konnte Einhalt geboten werden", "Schulen und Kindergärten wurden eröffnet."]
@@ -154,7 +154,7 @@ data = [dict(zip(data, t)) for t in zip(*data.values())]
 model.predict(data, cuda=True, show_progress=True)
 ```
 
-**Note:** Using the python interface you will get a list of segment-level scores. You can obtain the corpus-level score by averaging the segment-level scores
+**Note:** Using the python interface you will get a list of segment-level scores. You can obtain the corpus-level score by averaging the segment-level scores -->
 
 ## Model Zoo:
 
