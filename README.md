@@ -70,7 +70,79 @@ data = [
 model.predict(data, cuda=True, show_progress=True)
 ```
 
-### Simple Pythonic way to convert list or segments to model inputs:
+## Scoring MT outputs with MCD runs
+
+To run COMET with multiple MCD runs:
+
+```bash
+ #!/bin/bash
+ 
+GPU_N=3
+
+SCORES=/path/to/your/result/folder
+DATA=/path/to/your/data/folder
+
+N=100
+D=0.1
+N_REFS=1
+
+SRC=src.txt
+MT=mt.txt
+REF=ref.txt
+
+MODEL=wmt-large-da-estimator-1719
+
+echo Starting the process...
+
+CUDA_VISIBLE_DEVICES=$GPU_N comet score \
+  -s $DATA/sources/$SRC \
+  -h $DATA/system-outputs/$MT \
+  -r $DATA/references/$REF \
+  --to_json $SCORES/filename.json \
+  --n_refs $N_REFS \
+  --n_dp_runs $N \
+  --d_enc $D \
+  --d_pool $D \
+  --d_ff1 $D \
+  --d_ff2 $D \
+  --model $MODEL 
+
+```
+
+This will run the model with a set of hyperparameters defined above. Here is the description of the main scoring arguments:
+
+`-s`: Source segments.    
+`-h`: MT outputs.    
+`-r`: Reference segments.     
+`--to_json`: Creates and exports model predictions to a JSON file.     
+`--n_refs`: default=1. Number of references used during inference.   
+`--n_dp_runs`: default=30. Number of dropout runs at test time.     
+`--d_enc`: default=0.1. Dropout value for the encoder.     
+`--d_pool`: default=0.1. Dropout value for the layerwise pooling layer.       
+`--d_ff1`: default=0.1. Dropout value for the 1st feed forward layer.        
+`--d_ff2`: default=0.1. Dropout value for the 2nd feed forward layer.       
+`--model`: Name of the pretrained model OR path to a model checkpoint.     
+
+To know more about the rest of the parameters and their default values, take a look at the ```comet/cli.py``` file.
+
+## How to Evaluate
+
+## How to Reproduce Experiments
+
+### MCD and DEE 
+
+pointers for csores files
+
+### Multi-reference
+
+link to prism github
+link to translations
+
+### Precision/Recall
+
+pointer to jupyter notebook
+
+<!-- ### Simple Pythonic way to convert list or segments to model inputs:
 
 ```python
 source = ["Dem Feuer konnte Einhalt geboten werden", "Schulen und Kindergärten wurden eröffnet."]
@@ -83,7 +155,7 @@ data = [dict(zip(data, t)) for t in zip(*data.values())]
 model.predict(data, cuda=True, show_progress=True)
 ```
 
-**Note:** Using the python interface you will get a list of segment-level scores. You can obtain the corpus-level score by averaging the segment-level scores
+**Note:** Using the python interface you will get a list of segment-level scores. You can obtain the corpus-level score by averaging the segment-level scores -->
 
 ## Model Zoo:
 
@@ -130,7 +202,7 @@ To download public available corpora to train your new models you can use the `d
 comet download -d apequest --saving_path data/
 ```
 
-## unittest:
+<!-- ## unittest:
 ```bash
 pip install coverage
 ```
@@ -140,7 +212,7 @@ In order to run the toolkit tests you must run the following command:
 ```bash
 coverage run --source=comet -m unittest discover
 coverage report -m
-```
+``` -->
 
 ## Publications
 
