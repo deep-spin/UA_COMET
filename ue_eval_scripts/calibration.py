@@ -132,7 +132,7 @@ def compute_ence(target, mean, std, std_sum=0, std_scale=1,
     ence = np.mean(matches)
     
     return ence, np.linspace(1, 100 , num_bins), matches
-
+    
 
 # from https://openreview.net/pdf?id=ryg8wpEtvB
 def compute_ence_rn(target, mean, std, std_sum=0, std_scale=1,
