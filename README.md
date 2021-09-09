@@ -125,9 +125,7 @@ This will run the model with a set of hyperparameters defined above. Here is the
 
 To know more about the rest of the parameters and their default values, take a look at the ```comet/cli.py``` file.
 
-## How to Evaluate
-
-## How to Reproduce Experiments
+## How to Reproduce and Evaluate Experiments
 
 ### MCD and DEE 
 
