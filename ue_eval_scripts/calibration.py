@@ -9,30 +9,15 @@ NUM_BINS = 100
 def compute_calibration_error_non_parametric(target, scores, num_bins=NUM_BINS//5, scaling_val=1, scaling_sum=0):
     matches = []
     gammas = np.linspace(0, 1, num_bins)
-    scores = [(np.array(sorted(i))/scaling_val)+scaling_sum for i in scores]
-    for gamma in tqdm(gammas):   
-        # scores = [np.array(sorted(i))/scaling_val for i in scores]
-        lower = [np.quantile(s, (1-gamma)/2) for s in scores]
-        upper = [np.quantile(s, (1+gamma)/2) for s in scores]
+    median = np.median(scores, axis=1)
+    for gamma in gammas:   
+        tmp = (np.quantile(scores, (1+gamma)/2, axis=1) - np.quantile(scores, (1-gamma)/2, axis=1))*scaling_val + scaling_sum
+        lower = median - tmp
+        upper = median + tmp
         correct = np.logical_and(lower <= target, target <= upper).sum()/len(target)  
-        matches.append(correct)
-        
+        matches.append(correct) 
     calibration_error = (np.abs(gammas - matches)).mean()
     return calibration_error, gammas, matches
-
-
-# def optimize_calibration_error_non_parametric(target, scores, scaling_vals, scaling_sums, num_bins=NUM_BINS//5):
-#     best = np.inf
-#     best_scale = np.nan
-#     for scaling_val in tqdm(scaling_vals):
-#         for scaling_sum in tqdm(scaling_sums):
-#             calibration_error, _, _ = compute_calibration_error_non_parametric(
-#                 target, scores, num_bins, scaling_val, scaling_sum)
-#             if calibration_error < best:
-#                 best_scale = scaling_val
-#                 best = calibration_error
-#     return best, best_scale
-
 
 def optimize_calibration_error_non_parametric(target, scores, scaling_vals, scaling_sums, num_bins=NUM_BINS//5):
     best = np.inf
@@ -46,6 +31,31 @@ def optimize_calibration_error_non_parametric(target, scores, scaling_vals, scal
             best_sum = scaling_sum
             best = calibration_error
     return best, best_scale, best_sum
+
+
+def compute_calibration_error_non_parametric_base(target, mean, s, num_bins=NUM_BINS//5):
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    median = mean
+    for gamma in gammas:
+        lower = median - s*gamma/2
+        upper = median + s*gamma/2
+        correct = np.logical_and(lower <= target, target <= upper).sum()/len(target)  
+        matches.append(correct)
+    calibration_error = (np.abs(gammas - np.array(matches))).mean()
+    return calibration_error, gammas, matches
+
+
+def optimize_calibration_error_non_parametric_base(target, mean, s_vals, num_bins=NUM_BINS//5):
+    best = np.inf
+    best_s = np.nan
+    for s in tqdm(s_vals):
+        calibration_error, _, _ = compute_calibration_error_non_parametric_base(
+            target, mean, s, num_bins)
+        if calibration_error < best:
+            best_s = s
+            best = calibration_error
+    return best, best_s
 
 
 def probit(p):
@@ -74,7 +84,6 @@ def optimize_calibration_error(target, mean, std, std_sums, std_scales,
     best_std_sum = np.nan
     best_std_scale = np.nan
     for (std_sum, std_scale) in tqdm(itertools.product(std_sums, std_scales)):
-    #for std_sum, std_scale in zip(std_sums, std_scales):
         calibration_error, _, _ = compute_calibration_error(
             target, mean, std, std_sum, std_scale, num_bins)
         if calibration_error < best:
@@ -210,39 +219,50 @@ def compute_mcpe(target, mean, std, std_sum=0, std_scale=1,
     calibration_error = np.max((np.abs(gammas - matches)))
     return calibration_error, gammas, matches
 
-# sharpness related
-# def compute_epiw(mean, std, std_sum=0, std_scale=1,  # for parametric approach
-#                               num_bins=100):
-
-#     matches = []
-#     gammas = np.linspace(0, 1, num_bins)
-#     std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
-#     for gamma in gammas:
-#         lower = mean + std_transformed * probit((1-gamma)/2)
-#         upper = mean + std_transformed * probit((1+gamma)/2)
-#         width = upper-lower
-#         msk = np.ma.masked_invalid(width)
-#         width = np.ma.filled(msk, fill_value = 10)
-#         matches.append(width.mean())
-   
-#     sharpness = np.ma.masked_invalid(matches).mean()
-#     return sharpness, gammas, matches
-
-def compute_epiw(scores, mean, std, std_sum=0, std_scale=1,  # for non-parametric approach
-                              num_bins=100):
-
+# EPIW sharpness for parametric approach
+def compute_epiw(mean, std, std_sum=0, std_scale=1, num_bins=100):
     matches = []
     gammas = np.linspace(0, 1, num_bins)
-    scores = [(np.array(sorted(i))/std_scale)+std_sum for i in scores]
+    std_transformed = np.sqrt(std_sum**2 + (std_scale*std)**2)
     for gamma in gammas:
-        lower = np.array([np.quantile(s, (1-gamma)/2) for s in scores])
-        upper = np.array([np.quantile(s, (1+gamma)/2) for s in scores])
-
+        lower = mean + std_transformed * probit((1-gamma)/2)
+        upper = mean + std_transformed * probit((1+gamma)/2)
         width = upper-lower
         msk = np.ma.masked_invalid(width)
         width = np.ma.filled(msk, fill_value = 10)
         matches.append(width.mean())
    
+    sharpness = np.ma.masked_invalid(matches).mean()
+    return sharpness, gammas, matches
+
+# sharpness for non-parametric approach
+def compute_epiw_np(scores, std_sum=0, std_scale=1, num_bins=20):
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    median = np.median(scores, axis=1)
+    for gamma in gammas:
+        tmp = (np.quantile(scores, (1+gamma)/2, axis=1) - np.quantile(scores, (1-gamma)/2, axis=1))*std_scale + std_sum
+        lower = median - tmp
+        upper = median + tmp
+        width = upper-lower
+        msk = np.ma.masked_invalid(width)
+        width = np.ma.filled(msk, fill_value = 10)
+        matches.append(width.mean())
+    sharpness = np.ma.masked_invalid(matches).mean()
+    return sharpness, gammas, matches
+
+
+def compute_epiw_np_base(mean, s, num_bins=20):
+    matches = []
+    gammas = np.linspace(0, 1, num_bins)
+    median = mean
+    for gamma in gammas:
+        lower = median - s*gamma/2
+        upper = median + s*gamma/2
+        width = np.array(upper) - np.array(lower)
+        msk = np.ma.masked_invalid(width)
+        width = np.ma.filled(msk, fill_value = 10)
+        matches.append(width.mean())
     sharpness = np.ma.masked_invalid(matches).mean()
     return sharpness, gammas, matches
 
