@@ -426,7 +426,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.legend(prop={'size': 13})
         plt.show()
-        plt.savefig('figures2/'+args.prefix+args.score_type.upper()+'-Precision@N_relevant_'+str(batch)+'_perc.png',bbox_inches = "tight")
+        plt.savefig('figures/'+args.prefix+args.score_type.upper()+'-Precision@N_relevant_'+str(batch)+'_perc.png',bbox_inches = "tight")
         plt.close()
 
         matplotlib.rc('xtick', labelsize=14) 
@@ -442,5 +442,5 @@ if __name__ == "__main__":
         plt.legend()
         plt.legend(prop={'size': 13})
         plt.show()
-        plt.savefig('figures2/'+args.prefix+args.score_type.upper()+'-Recall@N_relevant_'+str(batch)+'_perc.png',bbox_inches = "tight")
+        plt.savefig('figures/'+args.prefix+args.score_type.upper()+'-Recall@N_relevant_'+str(batch)+'_perc.png',bbox_inches = "tight")
         plt.close()

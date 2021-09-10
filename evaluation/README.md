@@ -14,7 +14,7 @@ The evaluation is performed for each language pair (LP) and scoring metric separ
 This is the main experimental setup used to evaluate Uncertainty-Aware COMET. It assumes access to a csv with segment-level human MT-quality annotations [] and a 
 csv with multiple segment-level quality estimates produced by multiple MCD runs or ensembles for the uncertainty-aware system being evaluated. 
 
-Running the `evaluate_kfold_uncertainty.py` file will calculate the following metrics for the selected system and dataset scoring:
+Running the `evaluate_segment_uncertainty.py` file will calculate the following metrics for the selected system and dataset scoring:
 
 1. **PPS**: Predictive Pearson Score: measures the predictive accuracy of the system by calculating the Pearson correlationr between the human quality scores and the average system predictions. 
 2. **UPS**: Uncertainty Pearson Score: measures the alignment between the prediction errors and the uncertainty estimates 
@@ -36,7 +36,12 @@ The folder data/model_outputs/ contains COMET outputs that can be already used f
 ### Examples
 We present below examples and outputs for each of the datasets used in the associated publication:
 
-1. __DA scores from WMT 2020 task__
+1. __DA scores from WMT 2020 task__  
+Executing:   
+    `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/en_de/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/da/en-de_scores_da.csv --score-type da`
+
+Should produce the following outputs:
+
 
 2. __MQM scores__
 
@@ -85,7 +90,7 @@ In this experiment we evaluate the efficiency of the uncertainty aware system in
 
 For this experiment we use PRISM translations of the source sentences instead of the orginal human references. We provide the translations for the WMT2020 English-German data in: []
 
-To calculate and plot the Precision@N and Recall@N for critical errors (as defined above) run the `evaluate_critical_error_retrieval.py` script. The following flags can be used:
+To calculate and plot the Precision@N and Recall@N for critical errors (as defined above) run the `evaluate_critical_mistake_retrieval.py` script. The following flags can be used:
 
 `--comet-setup-file` = path to folder with model outputs for the setup to evaluate. Example:   
 `--scores-file` = path to human quality scores (csv) to test against. Example:   
@@ -106,14 +111,36 @@ We include below the commands needed to reproduce the results presented in []
 
 ## Main paper:
 
-* For the results of Table 2, run:
-* For the results of Table 3, run:
+* For the results of Table 2, for each language pair xx-yy in the table run:  
+    * For MCD: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/da/xx-yy_scores_da.csv --score-type da`  
+    * For Deep Ensembles: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/ensemble_1719/merged_ensemble_1719_da.csv --scores-file data/human_scores/da/xx-yy_scores_da.csv --score-type da --ensemble `    
+    * For the baseline: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/da/xx-yy_scores_da.csv --score-type da --baseline`   
+* For the results of Table 3, for each language pair xx-yy in the table run:  
+    * For MCD: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm`  
+    * For Deep Ensembles: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/ensemble_1719/merged_ensemble_1719_mqm.csv --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --ensemble ` 
+    * For the baseline: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/xx_yy/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --baseline`   
 * For the results of Table 4, run:
-* For the results of Table 5, run:
-* For the results of Table 6, run:
-* For reproducing Figure 2, run:
-* For reproducing Figure 3, run:
+    * For MCD (smt system example): `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/qt21/merged/merged_xx_yy_hter.csv --scores-file data/model_outputs/qt21/merged/merged_xx_yy_hter.csv --score-type hter`
+    * For Deep Ensembles: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/qt21/xx_yy/ensemble/merged_ensemble_hter.csv --scores-file data/model_outputs/qt21/merged/merged_xx_yy_hter.csv --score-type hter --ensemble ` 
+    * For the baseline: `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/qt21/merged/merged_baseline_xx_yy_hter.csv --scores-file data/model_outputs/qt21/merged/merged_xx_yy_hter.csv --score-type hter --baseline `
+* For the results of Table 5, run:  
+    * For 3 reference ABP set:  
+        * S-1:  
+        `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanABP  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 3 --sample `
+        * S-2:  
+        `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanABP  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 3 --paireval `
+        * Mul:  
+        `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanABP  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 3 `  
+    * For 2 reference MN set:  
+        * S-1:  
+        `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanMN  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 2 --sample `
+        * Mul:  
+        `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanMN  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 2 `
+* For the results of Table 6, for each human reference M run:  
+   `python3 evaluate_multi_ref.py --comet-setup-file /mnt/data-zeus1/chryssa/comet/setups/xx_yy/newstest2020/humanM  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv --score-type mqm --numrefs 1`
+* For reproducing Figures 2 and 3 run:  
+    `mkdir figures`  
+    `python3 evaluate_critical_mistake_retrieval.py --comet-setup-file /mnt/data-zeus1/glushkovato/comet/setups/xx_yy/newstest2020/d01_n100_nrefs1_qe_1719  --scores-file data/human_scores/mqm/2020-mqm-xx-yy.csv  --score-type mqm --comet-original-file /mnt/data-zeus1/glushkovato/comet/setups/xx_yy/newstest2020/original_comet_setup_qe/  --optimise --prefix test --norm_len `
 
-## Appendix:
-* For the results of Table 11, run:
-* For reproducing Figure 4, run:
+`
+
