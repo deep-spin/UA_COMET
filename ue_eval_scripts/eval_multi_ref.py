@@ -13,167 +13,22 @@ import argparse
 import itertools
 from os import listdir
 from os.path import isfile, join, isdir
-from normalisation import compute_z_norm, compute_fixed_std
+from normalisation import compute_z_norm, compute_fixed_std, standardize
 import copy
 import random
 
 
 
-def get_df(comet_dir, da_dir, args, nruns=100, docs=False, ):
-    SETUP_PATH = comet_dir
-    files = [f for f in listdir(SETUP_PATH) if isfile(join(SETUP_PATH, f))]
-    sys_files = [f for f in files if (f.split('_')[0] == 'system') and ('Human' not in f)]
-    da_scores = pd.read_csv(da_dir)
-    da_scores.system = da_scores.system.apply(lambda x: x.split('.')[0])
-    if args.score_type.lower() == 'mqm':
-        da_scores.rename(columns={'source': 'src', 'reference':'ref', 'score':'human_score'})
-        da_scores.loc[:, 'human_score'] = da_scores['human_score'].apply(lambda x: 100-x) #reverse scoring order
-        print('------DA1-------------')
-        print(da_scores.head())
-        doc_dir = args.doc_annotations
-        doc_df = pd.read_csv(doc_dir)
-        doc_df.drop(['sys_doc_id','human_score', 'raw_score', 'lp', 'annotators'], axis=1, inplace=True)
-        da_scores = da_scores.merge(doc_df, how='inner', on=['system','src','mt', 'ref'])
-        print('------DA2-------------')
-        print(da_scores.head())
-    dfs = []
-
-    if args.score_type.lower() == 'da' or args.score_type.lower() == 'mqm':
-        for s in sys_files:
-            f = open(join(SETUP_PATH,s), 'r')
-            data = json.loads(f.read()) 
-            f.close() 
-            system_name = '_'.join(s.split('.')[0].split('_')[1:])
-            lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
-            df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
-            da_scores_ = da_scores[da_scores.system == system_name]
-            df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
-            df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
-            df.drop(['ref_x', 'ref_y', 'lp', 'annotators'], axis=1, inplace=True)
-            dfs.append(df)
-        df_all = pd.concat(dfs)
-        df_all.reset_index(inplace=True)
-
-    elif args.score_type.lower() == 'hter':
-        # - - - uncomment for QT21 - - - 
-        df_all = pd.read_csv(SETUP_PATH)
-        df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('[')[1].split(']')[0].split(', ')])
-        df_all.doc_id = df_all.doc_id.apply(lambda x: int(x))
-        df_all.drop(['ref', 'src', 'mt', 'pe', 'lp'], axis=1, inplace=True)
-
-    # - - -  uncomment for ensembles - - - 
-    # df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('|')])
-        
-    if docs:
-        try:
-            #print('doc')
-            sys_doc_ids = df_all.sys_doc_id.unique().tolist()
-            doc_dp_runs_scores = [np.mean(df_all[df_all.sys_doc_id == i].dp_runs_scores.tolist(), axis=0) for i in sys_doc_ids]
-            doc_z_score = [np.mean(df_all[df_all.sys_doc_id == i].human_score.tolist()) for i in sys_doc_ids]
-            doc_sys = [df_all[df_all.sys_doc_id == i].system.unique()[0] for i in sys_doc_ids]
-            df_doc = pd.DataFrame(data=np.array([doc_sys, sys_doc_ids, doc_dp_runs_scores, doc_z_score]).T, columns=['system', 'doc_id','dp_runs_scores', 'human_score'])
-            df_doc.reset_index(inplace=True)
-            return df_doc
-        except:
-            return df_all
+def get_df_mqm(scores_file_g, lp):
    
-    return df_all
-
-def get_combined_df(comet_dir, da_dir, args, nruns=100, docs=False):
-    SETUP_PATH = comet_dir
-    refs_dirs = [f for f in listdir(SETUP_PATH) if isdir(join(SETUP_PATH, f))]
-    da_scores = pd.read_csv(da_dir)
-    da_scores.system = da_scores.system.apply(lambda x: x.split('.')[0])
-    if args.score_type.lower() == 'mqm':
-        da_scores = da_scores.rename(columns={'source': 'src', 'reference':'ref', 'score':'human_score'})
-        da_scores.loc[:, 'human_score'] = da_scores['human_score'].apply(lambda x: 100-x) #reverse scoring order
-        #print('------DA1-------------')
-        #print(da_scores.head())
-        doc_dir = args.doc_annotations
-        doc_df = pd.read_csv(doc_dir)
-        doc_df.drop(['sys_doc_id','human_score', 'raw_score', 'lp', 'annotators'], axis=1, inplace=True)
-        doc_df.system = doc_df.system.apply(lambda x: x.split('.')[0])
-        #print('------DOC-------------')
-        #print(doc_df.head())
-        da_scores = da_scores.merge(doc_df, how='inner', on=['system','src','mt', 'ref'])
-        #print('------DA2-------------')
-        #print(da_scores.head())
-        
-    elif args.score_type.lower() == 'da':
-        da_scores.drop(['lp', 'annotators'], axis=1, inplace=True)
-    df_combined = []
     
-    df_all = []
-    
-    for di, dir in enumerate(refs_dirs):
-        print(dir)
-        dpath = join(SETUP_PATH, dir)
-        print(dpath)
-        files = [f for f in listdir(dpath) if isfile(join(dpath, f))]
-        
-        sys_files = [f for f in files if (f.split('_')[0] == 'system') and ('Human' not in f)]
-        dfs = []
-        if args.score_type.lower() == 'da' or args.score_type.lower() == 'mqm':
-            if di==0:
-                for s in sys_files:
-                    f = open(join(dpath,s), 'r')
-                    data = json.loads(f.read()) 
-                   
-                    f.close() 
-                    system_name = '_'.join(s.split('.')[0].split('_')[1:])
-                    
-                    lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
-                    df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
-                    
-                    da_scores_ = da_scores[da_scores.system == system_name]
-                    df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
-                    df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
-                    df = df.rename(columns={'ref': 'ref_'+str(di), 'dp_runs_scores':'dp_runs_scores_'+str(di)})
-                    
-                    df.drop(['ref_x', 'ref_y'], axis=1, inplace=True)
-                    dfs.append(df)
-                df_all = pd.concat(dfs)
-                df_all.reset_index(inplace=True)
-            else:
-                for s in sys_files:
-                    f = open(join(dpath,s), 'r')
-                    data = json.loads(f.read()) 
-                    f.close() 
-                    system_name = '_'.join(s.split('.')[0].split('_')[1:])
-                    lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
-                    df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
-                    df_['dp_runs_scores'] = df_['dp_runs_scores'].apply(lambda x: x[:nruns])
-                    df_ = df_.rename(columns={'ref': 'ref_'+str(di), 'dp_runs_scores':'dp_runs_scores_'+str(di)})
-                    df = df_.merge(df_all, how='inner', on=['src', 'mt'])
-                    dfs.append(df)
-                df_all = pd.concat(dfs)
-                #df_all.reset_index(inplace=True)
-                      
+    mqm_scores = pd.read_csv(scores_file_g)
+    mqm_scores = mqm_scores[mqm_scores['lp']==lp]
+    mqm_scores.system = mqm_scores.system.apply(lambda x: x.split('.')[0])
+    mqm_scores =mqm_scores.rename(columns={'score':'human_score'})
+    mqm_scores.loc[:, 'human_score'] = mqm_scores['human_score'].apply(lambda x: 100-x) #reverse scoring order
+    return mqm_scores
 
-        elif args.score_type.lower() == 'hter':
-            # - - - uncomment for QT21 - - - 
-            df_all = pd.read_csv(SETUP_PATH)
-            df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('[')[1].split(']')[0].split(', ')])
-            df_all.doc_id = df_all.doc_id.apply(lambda x: int(x))
-            df_all.drop(['ref', 'src', 'mt', 'pe', 'lp'], axis=1, inplace=True)
-
-        # - - -  uncomment for ensembles - - - 
-        # df_all.dp_runs_scores = df_all.dp_runs_scores.apply(lambda x: [float(i) for i in x.split('|')])
-            
-        if docs:
-            try:
-                #print('doc')
-                sys_doc_ids = df_all.sys_doc_id.unique().tolist()
-                doc_dp_runs_scores = [np.mean(df_all[df_all.sys_doc_id == i].dp_runs_scores.tolist(), axis=0) for i in sys_doc_ids]
-                doc_z_score = [np.mean(df_all[df_all.sys_doc_id == i].human_score.tolist()) for i in sys_doc_ids]
-                doc_sys = [df_all[df_all.sys_doc_id == i].system.unique()[0] for i in sys_doc_ids]
-                df_doc = pd.DataFrame(data=np.array([doc_sys, sys_doc_ids, doc_dp_runs_scores, doc_z_score]).T, columns=['system', 'doc_id','dp_runs_scores', 'human_score'])
-                df_doc.reset_index(inplace=True)
-                return df_doc
-            except:
-                return df_all
-    print(df_all.head())
-    return df_all
 
 def get_score_multi_ref(row, num, sample):
     scores = []
@@ -182,12 +37,119 @@ def get_score_multi_ref(row, num, sample):
         return row['dp_runs_scores_'+str(ref_num)]
     else:
         for ref in range(num):
-            scores.append(row['dp_runs_scores_'+str(num)])
+            scores.append(row['dp_runs_scores_'+str(ref)])
         scores_mean = np.mean(scores, axis=0)
         #print(scores_mean.shape)
         return scores_mean.tolist()
 
-def load_da_scores_from_df_multi(df, num_ref, sample):
+
+def combine_both_multi(comet_dir, g_df, nruns):
+    
+    SETUP_PATH = comet_dir
+    #read data from the ub mqm scores as well to map the document ids
+    #mqms_ub = pd.read_parquet(score_file, engine='fastparquet') ##requires installation of fastparquet
+    #mqms_ub.system = mqms_ub.system.apply(lambda x: x.split('.')[0])
+    
+    #da_scores = mqms_ub
+    #da_scores_ = da_scores.groupby(['source_segment', 'target_segment',  'doc_id', 'system'], as_index=False).mean()
+    #print(da_scores_.shape)
+    print(g_df.shape)
+    #da_scores = da_scores_.rename(columns={'source_segment': 'src', 'target_segment':'mt'})
+    
+    #drop the ub scores, we only use the original google scores
+    #da_scores.drop(['target_segment_mqm'], axis=1, inplace=True)
+    #merge on src, mt and system name so that we get the doc ids too
+    da_scores = g_df #da_scores.merge(g_df, how='inner', on=['src', 'mt', 'system'])
+    #print(da_scores.shape)
+    #print(da_scores.system.unique())
+
+
+    # read the forward run outputs of the model (COMET)
+    # expects 1 dir with subdirs for each reference
+    # expects each ref dir to have 1 file per MT system
+    df_all = []
+    refs_dirs = [f for f in listdir(SETUP_PATH) if isdir(join(SETUP_PATH, f))]
+    for di, dir in enumerate(refs_dirs):
+        print(dir)
+        dpath = join(SETUP_PATH, dir)
+        print(dpath)
+        files = [f for f in listdir(dpath) if isfile(join(dpath, f))]
+        sys_files = [f for f in files if (f.split('_')[0] == 'system') and ('Human' not in f)]
+       
+        dfs = [] #reset for each reference
+        # di=0 first reference, initialise rows in the df; the rest references will extend these rows
+        if di==0:
+            for s in sys_files:
+                f = open(join(dpath,s), 'r')
+                data = json.loads(f.read()) 
+                f.close() 
+                system_name = '_'.join(s.split('.')[0].split('_')[1:])   
+                lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
+                df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
+                da_scores_ = da_scores[da_scores.system == system_name]
+                print
+                print(system_name)
+                print(da_scores_.shape)
+                df = df_.merge(da_scores_, how='inner', on=['src', 'mt'])
+                df['dp_runs_scores'] = df['dp_runs_scores'].apply(lambda x: x[:nruns])
+                df = df.rename(columns={'ref': 'ref_'+str(di), 'dp_runs_scores':'dp_runs_scores_'+str(di)})
+                #df.drop(['ref_x', 'ref_y'], axis=1, inplace=True)
+                dfs.append(df)
+            df_all = pd.concat(dfs)
+            df_all.reset_index(inplace=True)
+            #print(di)
+            #print(df_all.shape)
+        else:
+            print(sys_files)
+            for s in sys_files:
+                f = open(join(dpath,s), 'r')
+                data = json.loads(f.read()) 
+                f.close() 
+                system_name = '_'.join(s.split('.')[0].split('_')[1:])
+                #gets previous version and expands
+                df_all_s = df_all[df_all.system == system_name]
+                
+                lines = [[i['src'], i['mt'], i['ref'], i['dp_runs_scores']] for i in data if 'dp_runs_scores' in i.keys()]
+                df_ = pd.DataFrame(data=np.array(lines), columns=['src','mt', 'ref', 'dp_runs_scores'])
+                df_['dp_runs_scores'] = df_['dp_runs_scores'].apply(lambda x: x[:nruns])
+                df_ = df_.rename(columns={'ref': 'ref_'+str(di), 'dp_runs_scores':'dp_runs_scores_'+str(di)})
+                df = df_.merge(df_all_s, how='inner', on=['src', 'mt'])
+                dfs.append(df)
+            df_all = pd.concat(dfs)
+            print(di)
+            print(df_all.shape)
+                    
+    print(df_all.shape)
+    #print(df_all.head())
+    return df_all
+
+
+
+def get_score_multi_ref_subsample(row, num, sample):
+    scores = []
+    # get all prossible combinations
+    refpairs = list(itertools.combinations(list(range(num)), 2))
+    # randomly pick pair
+    ref_num = random.randint(0, len(refpairs)-1)
+    pair = refpairs[ref_num]
+    #print(pair)
+    sample_int = random.randint(0,1)
+    scores_sampled = row['dp_runs_scores_'+str(pair[sample_int])]
+    for ref in pair:
+        scores.append(row['dp_runs_scores_'+str(ref)])
+    scores_mean = np.mean(scores, axis=0)
+        
+    if sample:
+        return scores_sampled.tolist()
+    else:
+        return scores_mean.tolist()
+    
+    return row['dp_runs_scores_'+str(ref_num)]
+
+    return scores_mean.tolist(), scores_sampled.tolist()
+
+
+def load_da_scores_from_df_multi(df, num_ref, sample, paireval):
     systems_comet_scores = {}
     systems_human_scores = {}
     systems_ext = {}
@@ -208,39 +170,15 @@ def load_da_scores_from_df_multi(df, num_ref, sample):
             systems_human_scores[system_ext]={}
         if not doc_id in systems_human_scores[system_ext]:
             systems_human_scores[system_ext][doc_id]=[]
-        scores = get_score_multi_ref(row, num_ref, sample)
+        if paireval:
+            scores = get_score_multi_ref_subsample(row, num_ref, sample)
+        else:
+            scores = get_score_multi_ref(row, num_ref, sample)
         systems_comet_scores[system_ext][doc_id].append(scores)
         systems_human_scores[system_ext][doc_id].append(row['human_score'])
         
     return(systems_comet_scores, systems_human_scores, systems_ext)
 
-
-def load_da_scores_from_df(df):
-    systems_comet_scores = {}
-    systems_human_scores = {}
-    systems_ext = {}
-    for i, row in df.iterrows():
-        sent_id = int(row['index'])
-        system = row['system']
-        system_ext = 'system_'+system+'.json'
-        doc_id = row['doc_id']
-        if not system_ext in systems_ext:
-            #systems_ext.append(system_ext)
-            systems_ext[system_ext]=[]
-        systems_ext[system_ext].append(doc_id)
-        if not system_ext in systems_comet_scores:
-            systems_comet_scores[system_ext]={}
-        if not doc_id in systems_comet_scores[system_ext]:
-            systems_comet_scores[system_ext][doc_id]=[]
-        if not system_ext in systems_human_scores:
-            systems_human_scores[system_ext]={}
-        if not doc_id in systems_human_scores[system_ext]:
-            systems_human_scores[system_ext][doc_id]=[]
-        scores = row['dp_runs_scores']
-        systems_comet_scores[system_ext][doc_id].append(scores)
-        systems_human_scores[system_ext][doc_id].append(row['human_score'])
-        
-    return(systems_comet_scores, systems_human_scores, systems_ext)
 
 def split_k_fold(comet_scores, scores, systems_list, k=5):
     final_folds = []
@@ -300,20 +238,6 @@ def batch_data(all_da, all_comet, all_comet_avg, batch_size=1):
     return batch_da, batch_comet_scores, batch_comet_avg, batch_comet_std
 
 
-def standardize(scores_test, scores_dev, norm):
-    norm_mean = 0.0
-    norm_std = 1.0
-    if norm:
-        norm_mean, norm_std = compute_z_norm(scores_dev)
-    #all_scores = np.array([val for _,sys in scores_test.items() for _,doc in sys.items() for _,val in doc.items() ])
-    all_scores = np.array([val for _,sys in scores_test.items() for _,doc in sys.items() for val in doc ])
-    #print(all_scores.shape)
-    all_scores -= norm_mean
-    all_scores /= norm_std
-    #print(all_scores.shape)
-    #np.squeeze(all_scores,axis=1)
-    return all_scores
-
 
 if __name__ == "__main__":
 
@@ -324,20 +248,22 @@ if __name__ == "__main__":
                         help='path to scores for testing on')
     parser.add_argument('--norm', type=bool, default=True,
                         help='set to true to normalise the std on the ECE')
-    parser.add_argument('--score-type', type=str, default='da', 
+    parser.add_argument('--score-type', type=str, default='mqm', 
                         help='Choose type of scores between da | mqm | hter')
-    parser.add_argument('--docs', default=False, action='store_true',
-                        help= 'select segment or document level eval')
     parser.add_argument('--nruns', type=int, default=100,
                         help= 'select how many drpout runs to evaluate')
     parser.add_argument('--baseline', default=False, action='store_true',
                         help= 'select to evaluate the baseline only')
     parser.add_argument('--sample', default=False, action='store_true',
                         help= 'if set it will sample through multiple references instead of averaging them')
-    parser.add_argument('--numrefs',type=int, default=2,
+    parser.add_argument('--numrefs',type=int, default=3,
                         help= 'select how many refs to evaluate')
     parser.add_argument('--doc-annotations',type=str, default='',
                         help= 'for mqm')
+    parser.add_argument('--paireval', default=False, action='store_true',
+                        help= 'if set it will sample through pairs of references ')
+    parser.add_argument('--lp', type=str, default='en-de')
+    
     args = parser.parse_args()
     
     test_year='2020'
@@ -345,11 +271,16 @@ if __name__ == "__main__":
         test_year='2019'
     
     random.seed(10)
-    #if args.score_type.lower()=='da':
-    combined_df = get_combined_df(args.comet_setup_file, args.scores_file, args, args.nruns, args.docs)
-    print(list(combined_df.columns))
     
-    systems_comet_scores, systems_human_scores, systems_ext = load_da_scores_from_df_multi(combined_df, args.numrefs, args.sample)
+    #load MQM annotations merge
+    df_all_g = get_df_mqm(args.scores_file, args.lp)
+    print(df_all_g.columns)
+    print(df_all_g.shape)
+    # merge with document level annotations to be able to maintain whole documents when splitting
+    df_combined = combine_both_multi(args.comet_setup_file, df_all_g, args.nruns)
+    print(df_combined.shape)
+    # break to comet vs human scores for processing
+    systems_comet_scores, systems_human_scores, systems_ext = load_da_scores_from_df_multi(df_combined, args.numrefs, args.sample, args.paireval)
     k_folds = split_k_fold(systems_comet_scores, systems_human_scores, systems_ext)
 
     cal_avgll_folds = []
@@ -365,12 +296,7 @@ if __name__ == "__main__":
         # systems_comet_scores_test, systems_scores_test = k_folds[i]['comet'], k_folds[i]['human']
         systems_comet_scores_test, systems_scores_test = fold['comet'], fold['human']
         systems_comet_scores_dev, systems_scores_dev = merged_dev['comet'], merged_dev['human']
-        # print()
-        # print('_____ ! _______')
-        # np_scores = np.array([val for _,sys in systems_comet_scores_test.items() for _,doc in sys.items() for val in doc])
-        # print(np_scores.shape)
-        # np_scores = np.array([val for _,sys in systems_comet_scores_dev.items() for _,doc in sys.items() for val in doc])
-        # print(np_scores.shape)
+        
 
         print()
         print('- - - making dev/test split - - -')
@@ -390,9 +316,6 @@ if __name__ == "__main__":
         norm_comet_dev = standardize(systems_comet_scores_dev, systems_comet_scores_dev, args.norm)
         norm_comet_avg_dev = norm_comet_dev.mean(axis=1)    
     
-        # if args.docs:
-        #     batch_range = [1]
-        # else:
         batch_range = [1]
         for batch_size in batch_range:
             batch_human_test, batch_comet_scores_test, batch_comet_avg_test, batch_comet_std_test = batch_data(
@@ -405,14 +328,14 @@ if __name__ == "__main__":
                 fixed_std = compute_fixed_std(batch_comet_avg_dev, batch_human_dev)
                 batch_baseline_stds_test = np.full_like(batch_comet_std_test, fixed_std)
                 batch_baseline_stds_dev = np.full_like(batch_comet_std_dev, fixed_std)
-
+                pearson_acc = stats.pearsonr(batch_comet_avg_test, batch_human_test)[0]
                 base_calibration_error, gammas, base_matches = compute_calibration_error(
                     batch_human_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
                 mcpe_base, gammas, mcpe_matches_base = compute_mcpe(
                     batch_human_test, batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
                 sharpness_base = compute_sharpness(batch_baseline_stds_test, std_sum=0, std_scale=1)
-                epiw_base, gammas, epiw_matches_base = compute_epiw(
-                    batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
+                #epiw_base, gammas, epiw_matches_base = compute_epiw(
+                #    batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
                 mpiw_base, gammas, mpiw_matches_base = compute_mpiw(
                     batch_comet_avg_test, batch_baseline_stds_test, std_sum=0, std_scale=1)
                 ence_base, ence_gammas, ence_matches_base = compute_ence(
@@ -430,11 +353,11 @@ if __name__ == "__main__":
                 cal_avgll_folds.append(base_avgll)
                 calibration_error_folds.append(base_calibration_error)
                 sharpness_cal_folds.append(sharpness_base)
-
+                pearson_acc_folds.append(pearson_acc)
                 ############# LATEX #################
                 print('----------LATEX OUTPUTS----------')
-                print('& average NLL & ECE & Sharpness \\\\')
-                print('& %f & %f & %f  \\\\' % (np.round(base_avgll, 3), np.round(base_calibration_error, 3), np.round(sharpness_base, 3)))
+                print('& r(da,pred)& &average NLL & ECE & Sharpness \\\\')
+                print('& %.3f & 0.0 & %.3f & %.3f & %.3f  \\\\' % (pearson_acc, np.round(base_avgll, 3), np.round(base_calibration_error, 3), np.round(sharpness_base, 3)))
                 
             else:
                 # Parametric CE
@@ -444,8 +367,8 @@ if __name__ == "__main__":
                 mcpe, gammas, mcpe_matches = compute_mcpe(
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1) 
                 sharpness = compute_sharpness(batch_comet_std_test, std_sum=0, std_scale=1)
-                epiw, gammas, epiw_matches = compute_epiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
+                #epiw, gammas, epiw_matches = compute_epiw(
+                #    batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
                 mpiw, gammas, mpiw_matches = compute_mpiw(
                     batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
                 ence, ence_gammas, ence_matches = compute_ence(
@@ -454,15 +377,7 @@ if __name__ == "__main__":
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
                 ence_nn, ence_gammas_nn, ence_matches_nn = compute_ence_nn(
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum=0, std_scale=1)
-                # print("ECE = %f" % calibration_error)
-                # print("MCE = %f" % mcpe)
-                # print("Sharpness = %f" % sharpness)
-                # print("EPIW = %f" % epiw)
-                # print("MPIW = %f" % mpiw)
-                # print("ENCE = %f" % ence)
-                # print("ENCE_RN = %f" % ence_rn)
-                # print("ENCE_NN = %f" % ence_nn)
-                # print("Parametric CE  = %f" % calibration_error)
+              
                 
                 # Seek the best post-calibration to minimize calibration error.
                 # The correction is std_transformed**2 = std_sum**2 + (std_scale*std)**2,
@@ -513,8 +428,8 @@ if __name__ == "__main__":
                 mcpe_cal, gammas, mcpe_matches_cal = compute_mcpe(
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
                 sharpness_cal = compute_sharpness(batch_comet_std_test, std_sum, std_scale)
-                epiw_cal, gammas, epiw_matches_cal = compute_epiw(
-                    batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
+                #epiw_cal, gammas, epiw_matches_cal = compute_epiw(
+                #    batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
                 mpiw_cal, gammas, mpiw_matches_cal = compute_mpiw(
                     batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
                 ence_cal, ence_gammas, ence_matches_cal = compute_ence(
@@ -524,17 +439,7 @@ if __name__ == "__main__":
                 ence_cal_nn, ence_gammas_nn, ence_matches_cal_nn = compute_ence_nn(
                     batch_human_test, batch_comet_avg_test, batch_comet_std_test, std_sum, std_scale)
 
-                # print("Calibrated ECE = %f (calibrated std_sum=%f, std_scale=%f)"  % (calibration_error, std_sum, std_scale))
-                # print("Calibrated MCE = %f (calibrated std_sum=%f, std_scale=%f)"  % (mcpe_cal, std_sum, std_scale))
-                # print("Calibrated sharpness  = %f (calibrated std_sum=%f, std_scale=%f)"  % (sharpness_cal, std_sum, std_scale))
-                # print("Calibrated epiw sharpness  = %f (calibrated std_sum=%f, std_scale=%f)"  % (epiw_cal, std_sum, std_scale))
-                # print("Calibrated mpiw sharpness = %f (calibrated std_sum=%f, std_scale=%f)"  % (mpiw_cal,  std_sum, std_scale))
-                # print("Calibrated ENCE = %f (calibrated std_sum=%f, std_scale=%f)"  % (ence_cal,  std_sum, std_scale))
-                # print("Calibrated ENCE_RN = %f (calibrated std_sum=%f, std_scale=%f)"  % (ence_cal_rn,  std_sum, std_scale))
-                # print("Calibrated ENCE_NN = %f (calibrated std_sum=%f, std_scale=%f)"  % (ence_cal_nn,  std_sum, std_scale))
-                # print("Calibrated Parametric CE = %f (calibrated std_sum=%f, std_scale=%f)" %
-                #     (calibration_error, std_sum, std_scale))
-                
+                 
                 # Compute ALL and NLL
                 avgll, negll = compute_avgll(batch_human_test, batch_comet_avg_test, batch_comet_std_test)       
                 # print("ALL = %f" % avgll)
@@ -559,16 +464,7 @@ if __name__ == "__main__":
                 np_calibration_error, np_gammas, np_matches = compute_calibration_error_non_parametric(
                     batch_human_test, batch_comet_scores_test)
                 print("Non-parametric CE = %f" % np_calibration_error)
-                # Best non-parametric CE 
-                # np_scaling_vals = np.linspace(0.05, 1, 20)
-                # np_scaling_sums = np.linspace(0.0, 1, 20)
-                # _, best_scale_val = optimize_calibration_error_non_parametric(
-                #     batch_human_dev, batch_comet_scores_dev, scaling_vals=np_scaling_vals, scaling_sums=np_scaling_sums)
-                # np_calibration_error, np_gammas, np_matches = compute_calibration_error_non_parametric(
-                #     batch_human_test, batch_comet_scores_test, scaling_val=best_scale_val)
-                # print("Non-parametric CE = %f (calibrated, best_scaling_val=%f)" %
-                #     (np_calibration_error, best_scale_val))
-        
+            
                 cal_avgll_folds.append(cal_avgll)
                 calibration_error_folds.append(calibration_error)
                 sharpness_cal_folds.append(sharpness_cal)
@@ -580,7 +476,7 @@ if __name__ == "__main__":
         print('------averaged over k folds------')
         print('----------LATEX OUTPUTS----------')
         print('& average NLL & ECE & Sharpness \\\\')
-        print('& %f & %f & %f  \\\\' % (np.mean(cal_avgll_folds), np.mean(calibration_error_folds), np.mean(sharpness_cal_folds)))
+        print('& %.3f & 0.0 & %.3f & %.3f & %.3f  \\\\' % (np.mean(pearson_acc_folds), np.mean(cal_avgll_folds), np.mean(calibration_error_folds), np.mean(sharpness_cal_folds)))
     else:
         print()
         print(cal_avgll_folds)
@@ -591,70 +487,12 @@ if __name__ == "__main__":
         print('& r(human, pred) & r(|pred-human|,std) \\\\')
         print('& %f & %f   \\\\' % (np.mean(pearson_acc_folds), np.mean(pearson_d1_cal_folds)))
 
-        ################## FIGURES #################
-        # plt.xlabel('Confidence level $\gamma$')
-        # plt.ylabel('ECE')
-        # plt.title(args.score_type.upper() + ': 1719 on '+test_year+' - Batch size = %d' % batch_size)
-        # plt.plot(gammas, matches, 'b', label="Original ECE")
-        # plt.plot(gammas, matches_cal, 'r', label="Calibrated ECE")
-        # plt.plot(gammas, base_matches, 'g', label="Baseline ECE")
-        # #plt.plot(gammas, mcpe_matches, 'b:', label="Original MPE")
-        # #plt.plot(gammas, mcpe_matches_cal, 'r:', label="Calibrated MPE")
-        # plt.plot([0, 1], [0, 1], 'k--')
-        # plt.legend()
-        # plt.show()
-        # plt.savefig('figures/'+args.score_type.upper()+'_1719-'+test_year+'-ECE_bs_'+str(batch_size)+'.png')
-        # plt.close()
+        print()
+        print(cal_avgll_folds)
+        print('------averaged over k folds------')
+        print('----------LATEX OUTPUTS long rounded----------')
+        print('& r(human, pred) & r(|pred-human|,std) & average NLL & ECE & Sharpness \\\\')
+        print('& %.3f & %.3f & %.3f & %.3f & %.3f  \\\\' % (np.mean(pearson_acc_folds), np.mean(pearson_d1_cal_folds), np.mean(cal_avgll_folds), np.mean(calibration_error_folds), np.mean(sharpness_cal_folds)))
+  
 
-        # plt.xlabel('Confidence level $\gamma$')
-        # plt.ylabel('Sharpness')
-        # plt.title(args.score_type.upper() + ': 1719 on '+test_year+' - Batch size = %d' % batch_size)
-        # plt.plot(gammas, epiw_matches, 'b', label="Original sharpness")
-        # plt.plot(gammas, epiw_matches_cal, 'r', label="Calibrated sharpness")
-        # plt.plot(gammas, epiw_matches_base, 'g', label="Baseline sharpness")
-        # plt.plot(gammas, mpiw_matches, 'b:', label="Original max sharpness")
-        # plt.plot(gammas, mpiw_matches_cal, 'r:', label="Calibrated max sharpness")
-        # #plt.plot([0, 1], [0, 1], 'k--')
-        # plt.legend()
-        # plt.show()
-        # plt.savefig('figures/'+args.score_type.upper()+'_1719-'+test_year+'-SHARP_bs_'+str(batch_size)+'.png')
-        # plt.close()
-       
-        # plt.xlabel('Bins (ascending std values) $')
-        # plt.ylabel('ENCE')
-        # plt.title(args.score_type.upper() + ': 1719 on '+test_year+' - Batch size = %d' % batch_size)
-        # plt.plot(ence_gammas, ence_matches, 'b', label="Original ENCE")
-        # plt.plot(ence_gammas, ence_matches_cal, 'r', label="Calibrated ENCE")
-        # plt.plot(ence_gammas, ence_matches_base, 'g', label="Baseline ENCE")
-        # #plt.plot([0, 1], [0, 1], 'k--')
-        # plt.legend()
-        # plt.show()
-        # plt.savefig('figures/'+args.score_type.upper()+'_1719-'+test_year+'-ENCE_bs_'+str(batch_size)+'.png')
-        # plt.close()
-
-        # plt.xlabel('Bins (ascending std values) $')
-        # plt.ylabel('ENCE RN')
-        # plt.title(args.score_type.upper() + ': 1719 on '+test_year+' - Batch size = %d' % batch_size)
-        # plt.plot(ence_gammas_rn, ence_matches_rn, 'b', label="Original ENCE_RN")
-        # plt.plot(ence_gammas_rn, ence_matches_cal_rn, 'r', label="Calibrated ENCE_RN")
-        # plt.plot(ence_gammas_rn, ence_matches_base_rn, 'g', label="Baseline ENCE_RN")
-        # #plt.plot([0, 1], [0, 1], 'k--')
-        # plt.legend()
-        # plt.show()
-        # plt.savefig('figures/'+args.score_type.upper()+'_1719-'+test_year+'-ENCE_RN_bs_'+str(batch_size)+'.png')
-        # plt.close()
-
-
-        # plt.xlabel('Bins (ascending std values) $')
-        # plt.ylabel('ENCE NN')
-        # plt.title(args.score_type.upper() + ': 1719 on '+test_year+' - Batch size = %d' % batch_size)
-        # plt.plot(ence_gammas_nn, ence_matches_nn, 'b', label="Original ENCE_NN")
-        # plt.plot(ence_gammas_nn, ence_matches_cal_nn, 'r', label="Calibrated ENCE_NN")
-        # plt.plot(ence_gammas_nn, ence_matches_base_nn, 'g', label="Baseline ENCE_NN")
-        # #plt.plot([0, 1], [0, 1], 'k--')
-        # plt.legend()
-        # plt.show()
-        # plt.savefig('figures/'+args.score_type.upper()+'_1719-'+test_year+'-ENCE_NN_bs_'+str(batch_size)+'.png')
-        # plt.close()
-
-
+   

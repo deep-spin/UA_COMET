@@ -1,5 +1,6 @@
+
 # -*- coding: utf-8 -*-
-r"""
+"""
 Estimator Base Model
 =======================
     Abstract base class used to build new estimator models
@@ -24,36 +25,24 @@ import statistics
 class Estimator(ModelBase):
     """
     Estimator base class that uses an Encoder to encode sequences.
-
     :param hparams: Namespace containing the hyperparameters.
     """
 
     class ModelConfig(ModelBase.ModelConfig):
         """
         Estimator ModelConfig:
-
         --------------------------- Encoder -----------------------------------------
-
         :param encoder_learning_rate: Learning rate used for the encoder model.
-
         :param layerwise_decay: Decay for the layer wise learning rates. If 1.0 no decay is applied.
-
         :param layer: Layer that will be used to extract embeddings. If 'mix' embeddings
             from all layers are combined with a layer-wise attention mechanism
-
         :param scalar_mix_dropout: If layer='mix' we can regularize layer's importance by
             with a given probability setting that weight to - inf before softmax.
-
         ------------------------- Feed Forward ---------------------------------------
-
         :param loss: Loss function to be used (options: binary_xent, mse).
-
         :param hidden_sizes: String with size of the hidden layers in the feedforward.
-
         :param activations: Activation functions to be used in the feedforward
-
         :param dropout: Dropout probability to be applied to the feedforward
-
         :param final_activation: Activation function to be applied after getting the
             final regression score. Set to False if you wish to perform an 'unbounded' regression.
         """
@@ -92,9 +81,7 @@ class Estimator(ModelBase):
 
     def read_csv(self, path: str) -> List[dict]:
         """Reads a comma separated value file.
-
         :param path: path to a csv file.
-
         :return: List of records as dictionaries
         """
         df = pd.read_csv(path)
@@ -110,7 +97,6 @@ class Estimator(ModelBase):
     ) -> torch.Tensor:
         """
         Computes Loss value according to a loss function.
-
         :param model_out: model specific output. Must contain a key 'score' with
             a tensor [batch_size x 1] with model predictions
         :param targets: Target score values [batch_size]
@@ -137,10 +123,8 @@ class Estimator(ModelBase):
     ) -> torch.Tensor:
         """Auxiliar function that extracts sentence embeddings for
             a single sentence.
-
         :param tokens: sequences [batch_size x seq_len]
         :param lengths: lengths [batch_size]
-
         :return: torch.Tensor [batch_size x hidden_size]
         """
         # When using just one GPU this should not change behavior
@@ -203,15 +187,14 @@ class Estimator(ModelBase):
         cuda: bool = False,
         show_progress: bool = False,
         batch_size: int = -1,
-    ) -> (float,float):
+    ) -> Tuple[float,float]:
+
         """Function that runs a model prediction, on a given sample and calculates the mean and variance of predictions
         to calculate the normalised scores.
-
         :param samples: List of dictionaries with 'mt' and 'ref' keys.
         :param cuda: Flag that runs inference using 1 single GPU.
         :param show_progress: Flag to show progress during inference of multiple examples.
         :para batch_size: Batch size used during inference. By default uses the same batch size used during training.
-
         :return: mean and standard deviation calculated on the provided samples
         """
 
@@ -290,14 +273,12 @@ class Estimator(ModelBase):
         d_pool = 0.0, 
         d_ff1 = 0.0, 
         d_ff2 = 0.0
-    ) -> (Dict[str, Union[str, float]], List[float]):
+    ) -> Tuple[Dict[str, Union[str, float]], List[float]]:
         """Function that runs a model prediction,
-
         :param samples: List of dictionaries with 'mt' and 'ref' keys.
         :param cuda: Flag that runs inference using 1 single GPU.
         :param show_progress: Flag to show progress during inference of multiple examples.
         :para batch_size: Batch size used during inference. By default uses the same batch size used during training.
-
         :return: Dictionary with original samples, predicted scores and langid results for SRC and MT
             + list of predicted scores
         """
@@ -429,14 +410,12 @@ class Estimator(ModelBase):
         documents: List[Dict[str, List[str]]],
         cuda: bool = False,
         show_progress: bool = False,
-    ) -> (Dict[str, Union[str, float]], List[float]):
+    ) -> Tuple(Dict[str, Union[str, float]], List[float]):
         """Function that scores entire documents by processing all segments in parallel.
-
         :param documents: List of dictionaries with 'mt', 'src' and 'ref' keys where each key is
             a list of segments.
         :param cuda: Flag that runs inference using 1 single GPU.
         :param show_progress: Flag to show progress during inference of multiple examples.
-
         :return: tuple with Dictionary with original samples and predicted document score, micro
             average scores, macro average scores.
         """
