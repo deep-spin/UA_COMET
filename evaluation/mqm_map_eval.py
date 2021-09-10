@@ -47,8 +47,7 @@ def get_df(comet_dir, da_dir):
     return df_all
 
 def map_psqm(psqm_file, df):
-    # file format: Human-B.0       independent.281139      1       1       rater2  Michael Jackson wore tape on his nose to get front pages, former bodyguard claims       Ehemaliger Bodyguard behauptet, Michael Jackson trug Pflaster auf der Nase, um in die Presse zu kommen  4
-    # file format: System   doc_name    system_id?   ?  annot# src mt  score
+    
     scores = [-1.0]*len(df)
     print(df.head())
     df['psqm_score'] = scores

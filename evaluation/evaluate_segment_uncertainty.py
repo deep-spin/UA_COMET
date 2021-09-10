@@ -256,7 +256,7 @@ if __name__ == "__main__":
     epiw_cal_folds = []
     pearson_acc_folds = []
     pearson_d2_cal_folds = []
-
+    pearson_d1_cal_folds = []
     np_calibration_error_folds = []
     np_sharpness_cal_folds = []
     np_pearson_folds = []
@@ -514,7 +514,7 @@ if __name__ == "__main__":
                 print('& average NLL & ECE & Sharpness & EPIW \\\\')
                 print('& %f & %f & %f & %f \\\\' % (cal_avgll, calibration_error, sharpness_cal, epiw_cal))
                 print('& r(human, pred) & r(|pred-human|,std) \\\\')
-                print('& %f & %f   \\\\' % (pearson_acc, pearson_d2_cal))
+                print('& %f & %f   \\\\' % (pearson_acc, pearson_d1_cal))
                 # print('& ECE_np & EPIW_np \\\\')
                 # print('& %f & %f   \\\\' % (np_calibration_error, np_sharpness_cal))
                 # print('& np_pearson \\\\')
@@ -526,7 +526,7 @@ if __name__ == "__main__":
                 epiw_cal_folds.append(epiw_cal)
                 pearson_acc_folds.append(pearson_acc)
                 pearson_d2_cal_folds.append(pearson_d2_cal)
-
+                pearson_d1_cal_folds.append(pearson_d1_cal)
                 # np_calibration_error_folds.append(np_calibration_error)
                 # np_sharpness_cal_folds.append(np_sharpness_cal)
                 np_pearson_folds.append(np_pearson)
@@ -545,8 +545,8 @@ if __name__ == "__main__":
         print()
         print('------AVERAGED OVER k FOLDS------')
         print('----------LATEX OUTPUTS----------')
-        print('& r(human, pred) & r(|pred-human|,std) & average NLL & ECE & Sharpness & EPIW \\\\')
-        print('& %.3f & %.3f & %.3f & %.3f & %.3f & %.3f \\\\' % (round(np.mean(pearson_acc_folds),3), round(np.mean(pearson_d2_cal_folds),3), round(np.mean(cal_avgll_folds),3), round(np.mean(calibration_error_folds),3), round(np.mean(sharpness_cal_folds),3), round(np.mean(epiw_cal_folds),3)))
+        print('& PPS & UPS & average NLL & ECE & Sharpness  \\\\')
+        print('& %.3f & %.3f & %.3f & %.3f & %.3f \\\\' % (round(np.mean(pearson_acc_folds),3), round(np.mean(pearson_d1_cal_folds),3), round(np.mean(cal_avgll_folds),3), round(np.mean(calibration_error_folds),3), round(np.mean(sharpness_cal_folds),3)))#, round(np.mean(epiw_cal_folds),3)))
         # print('& ECE_np & EPIW_np \\\\')
         # print('& %.3f & %.3f   \\\\' % (round(np.mean(np_calibration_error_folds),3), round(np.mean(np_sharpness_cal_folds),3)))
         # print('& np_pearson \\\\')

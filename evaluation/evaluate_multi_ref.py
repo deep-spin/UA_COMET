@@ -258,8 +258,6 @@ if __name__ == "__main__":
                         help= 'if set it will sample through multiple references instead of averaging them')
     parser.add_argument('--numrefs',type=int, default=3,
                         help= 'select how many refs to evaluate')
-    parser.add_argument('--doc-annotations',type=str, default='',
-                        help= 'for mqm')
     parser.add_argument('--paireval', default=False, action='store_true',
                         help= 'if set it will sample through pairs of references ')
     parser.add_argument('--lp', type=str, default='en-de')
