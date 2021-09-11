@@ -9,6 +9,12 @@
 </p>
 
 
+
+#### This repository presents UA-COMET – an extension of the COMET metric implemented by Unbabel. 
+
+#### It contains the code and data to reproduce experiments in [Uncertainty-Aware Machine Translation Evaluation]()
+
+
 ## Quick Installation
 
 We recommend python 3.6 to run COMET.
@@ -115,30 +121,19 @@ This will run the model with a set of hyperparameters defined above. Here is the
 `-h`: MT outputs.    
 `-r`: Reference segments.     
 `--to_json`: Creates and exports model predictions to a JSON file.     
-`--n_refs`: default=1. Number of references used during inference.   
-`--n_dp_runs`: default=30. Number of dropout runs at test time.     
-`--d_enc`: default=0.1. Dropout value for the encoder.     
-`--d_pool`: default=0.1. Dropout value for the layerwise pooling layer.       
-`--d_ff1`: default=0.1. Dropout value for the 1st feed forward layer.        
-`--d_ff2`: default=0.1. Dropout value for the 2nd feed forward layer.       
+`--n_refs`: Number of references used during inference. [default=1]  
+`--n_dp_runs`: Number of dropout runs at test time. [default=30]  
+`--d_enc`: Dropout value for the encoder. [default=0.1]  
+`--d_pool`: Dropout value for the layerwise pooling layer. [default=0.1]       
+`--d_ff1`: Dropout value for the 1st feed forward layer. [default=0.1]       
+`--d_ff2`: Dropout value for the 2nd feed forward layer. [default=0.1]        
 `--model`: Name of the pretrained model OR path to a model checkpoint.     
 
 To know more about the rest of the parameters and their default values, take a look at the ```comet/cli.py``` file.
 
 ## How to Reproduce and Evaluate Experiments
 
-### MCD and DEE 
-
-pointers for csores files
-
-### Multi-reference
-
-link to prism github
-link to translations
-
-### Precision/Recall
-
-pointer to jupyter notebook
+The ```evaluation``` sub-folder contains the scripts and data necessary to reproduce the experiments presented in [] and/or test new model outputs. See the README in that folder for more detailed instructions.
 
 <!-- ### Simple Pythonic way to convert list or segments to model inputs:
 
@@ -157,60 +152,31 @@ model.predict(data, cuda=True, show_progress=True)
 
 ## Model Zoo:
 
+The COMET models used for uncertainty-aware MT evaluation experiments are: 
+* `wmt-large-da-estimator-1719`  for the WMT20 dataset (DA/MQM scores)
+* `wmt-large-hter-estimator` for the QT21 dataset (HTER scores)  
+
+Available and compatible models are:
+
 | Model              |               Description                        |
 | :--------------------- | :------------------------------------------------ |
 | ↑`wmt-large-da-estimator-1719` | **RECOMMENDED:** Estimator model build on top of XLM-R (large) trained on DA from WMT17, WMT18 and WMT19 |
 | ↑`wmt-base-da-estimator-1719` | Estimator model build on top of XLM-R (base) trained on DA from WMT17, WMT18 and WMT19 |
 | ↓`wmt-large-hter-estimator` | Estimator model build on top of XLM-R (large) trained to regress on HTER. |
 | ↓`wmt-base-hter-estimator` | Estimator model build on top of XLM-R (base) trained to regress on HTER. |
-| ↑`emnlp-base-da-ranker`    | Translation ranking model that uses XLM-R to encode sentences. This model was trained with WMT17 and WMT18 Direct Assessments Relative Ranks (DARR). |
 
-#### QE-as-a-metric:
-
-| Model              |               Description                        |
-| -------------------- | -------------------------------- |
-| `wmt-large-qe-estimator-1719` | Quality Estimator model build on top of XLM-R (large) trained on DA from WMT17, WMT18 and WMT19. |
 
 ## Train your own Metric: 
 
-Instead of using pretrained models your can train your own model with the following command:
+Instead of using pretrained models your can train your own COMET model with the following command:
 ```bash
 comet train -f {config_file_path}.yaml
 ```
+For more information check: []
 
-### Supported encoders:
-- [Learning Joint Multilingual Sentence Representations with Neural Machine Translation](https://arxiv.org/abs/1704.04154)
-- [Massively Multilingual Sentence Embeddings for Zero-Shot Cross-Lingual Transfer and Beyond](https://arxiv.org/abs/1812.10464)
-- [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/pdf/1810.04805.pdf)
-- [XLM-R: Unsupervised Cross-lingual Representation Learning at Scale](https://arxiv.org/pdf/1911.02116.pdf)
+Alternatively, it is possible to train a different metric and compare performance using the scripts in the evaluation sub-folder. In this case, ensure the metric output files maintain the same structure described in ```evaluation/data/README.md```.
 
 
-### Tensorboard:
-
-Launch tensorboard with:
-```bash
-tensorboard --logdir="experiments/"
-```
-
-## Download Command: 
-
-To download public available corpora to train your new models you can use the `download` command. For example to download the APEQUEST HTER corpus just run the following command:
-
-```bash
-comet download -d apequest --saving_path data/
-```
-
-<!-- ## unittest:
-```bash
-pip install coverage
-```
-
-In order to run the toolkit tests you must run the following command:
-
-```bash
-coverage run --source=comet -m unittest discover
-coverage report -m
-``` -->
 
 ## Publications
 

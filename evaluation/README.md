@@ -27,7 +27,7 @@ The folder data/model_outputs/ contains COMET outputs that can be already used f
 `--comet-setup-file` = path to folder with model outputs for the setup to evaluate. Example:   
 `--scores-file` = path to human quality scores (csv) to test against. Example:     
 `--norm` = set to True to calibrate the predicted quality std on the ECE.  
-`--score-type`= Choose type of scores between da | mqm | hter.  
+`--score-type` = Choose type of scores between da | mqm | hter.  
 `--docs` = Select segment or document level eval.  
 `--nruns` = For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
 `--baseline` = Select to evaluate the baseline only.  
@@ -101,7 +101,7 @@ To calculate and plot the Precision@N and Recall@N for critical errors (as defin
 `--lp` = Choose which language pair to evaluate over.  
 `--dev-first` = select which half to be used as dev set.  
 `--optimise` = Set to true to optimise the critical error threshold (on recall values).  
-`--prefix` =  Set prefix of the plots to be saved. 
+`--prefix` =  Set prefix of the plots to be saved.  
 `--norm_len`= Set to normalize human scores by sentence length. 
 
 
