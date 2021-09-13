@@ -85,7 +85,7 @@ To run COMET with multiple MCD runs:
  
 GPU_N=3
 
-SCORES=/path/to/your/result/folder
+SCORES=/path/to/your/output/folder
 DATA=/path/to/your/data/folder
 
 N=100
