@@ -12,7 +12,7 @@
 
 #### This repository presents UA-COMET – an extension of the COMET metric implemented by Unbabel. 
 
-#### It contains the code and data to reproduce experiments in [Uncertainty-Aware Machine Translation Evaluation]()
+#### It contains the code and data to reproduce the experiments in [Uncertainty-Aware Machine Translation Evaluation]().
 
 
 ## Quick Installation
@@ -133,7 +133,7 @@ To know more about the rest of the parameters and their default values, take a l
 
 ## How to Reproduce and Evaluate Experiments
 
-The ```evaluation``` sub-folder contains the scripts and data necessary to reproduce the experiments presented in [] and/or test new model outputs. See the README in that folder for more detailed instructions.
+The ```evaluation``` sub-folder contains the scripts and data necessary to reproduce the experiments presented in [Uncertainty-Aware Machine Translation Evaluation]() and/or test new model outputs. See the README in that folder for more detailed instructions.
 
 <!-- ### Simple Pythonic way to convert list or segments to model inputs:
 
@@ -172,9 +172,9 @@ Instead of using pretrained models your can train your own COMET model with the 
 ```bash
 comet train -f {config_file_path}.yaml
 ```
-For more information check: []
+For more information check: [COMET's documentation](https://unbabel.github.io/COMET/html/training.html).
 
-Alternatively, it is possible to train a different metric and compare performance using the scripts in the evaluation sub-folder. In this case, ensure the metric output files maintain the same structure described in ```evaluation/data/README.md```.
+Alternatively, it is possible to train a different metric and compare performance using the scripts in the evaluation sub-folder. In this case, ensure the metric output files maintain the same structure as described in ```evaluation/data/README.md```.
 
 
 
