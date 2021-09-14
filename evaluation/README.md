@@ -1,7 +1,7 @@
 <!-- Evaluation and Result Reproduction -->
 # Getting Started
 
-The scripts and data in this folder allow to evaluate the predictions of COMET (or any other model MCD/ensemble outputs) with respect to uncertainty, and to reproduce the results and figures shown in [paper URL]. COMET predictions and human annotations are provided in the data/model_outputs and data/human_scores folders respectively. The necessary format and structure of those documents are explained in separate README files in these folders.
+The scripts and data in this folder allow to evaluate the predictions of COMET (or any other model MCD/ensemble outputs) with respect to uncertainty, and to reproduce the results and figures shown in [paper URL]. COMET predictions and human annotations are provided in the ```data/model_outputs``` and ```data/human_scores``` folders respectively. The necessary format and structure of those documents are explained in separate README files in these folders.
 
 
 # Experimental Setups and Evaluation metrics
@@ -24,21 +24,26 @@ Running the `evaluate_segment_uncertainty.py` file will calculate the following 
 
 The folder data/model_outputs/ contains COMET outputs that can be already used for this setup.   The following arguments can be used with `evaluate_kfold_uncertainty.py` to evaluate different setups:
 
-`--comet-setup-file` = path to folder with model outputs for the setup to evaluate. Example:   
-`--scores-file` = path to human quality scores (csv) to test against. Example:     
-`--norm` = set to True to calibrate the predicted quality std on the ECE.  
-`--score-type` = Choose type of scores between da | mqm | hter.  
-`--docs` = Select segment or document level eval.  
-`--nruns` = For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
-`--baseline` = Select to evaluate the baseline only.  
-`--ensemble` = Select if the comet setup outputs are from ensemble instead of MCD.  
+`--comet-setup-file`: Path to folder with model outputs for the setup to evaluate.   
+`--scores-file`: Path to human quality scores (csv) to test against.       
+`--norm`: Set to True to calibrate the predicted quality std on the ECE.  
+`--score-type`: Choose type of scores between da | mqm | hter.  
+`--docs`: Select segment or document level eval.  
+`--nruns`: For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
+`--baseline`: Select to evaluate the baseline only.  
+`--ensemble`: Select if the comet setup outputs are from ensemble instead of MCD.  
 
 ### Examples
 We present below examples and outputs for each of the datasets used in the associated publication:
 
 1. __DA scores from WMT 2020 task__  
 Executing:   
-    `python3 evaluate_segment_uncertainty.py --comet-setup-file data/model_outputs/wmt20/en_de/newstest2020/d01_n100_nrefs1_1719 --scores-file data/human_scores/da/en-de_scores_da.csv --score-type da`
+```bash
+python3 evaluate_segment_uncertainty.py \
+    --comet-setup-file data/model_outputs/wmt20/en_de/newstest2020/d01_n100_nrefs1_1719 \
+    --scores-file data/human_scores/da/en-de_scores_da.csv \   
+    --score-type da
+```
 
 Should produce the following outputs:
 
@@ -52,20 +57,20 @@ Should produce the following outputs:
 In this experiment we evaluate the performance of uncertainty prediction when using more than oe references per segment. Evaluating this setup experiments requires running with a different script `evaluate_multi_ref.py` . 
 
 
-This script requires formatting the setup repository differently: Run the system on each of the available references generating the model_output directory as in the previous experiments and then group these directories under a parent directory that will beprovided asinput to the script. The folder data/model_outputs/multi_ref contains such examples.
+This script requires formatting the setup repository differently: Run the system on each of the available references generating the model_output directory as in the previous experiments and then group these directories under a parent directory that will beprovided asinput to the script. The folder ```data/model_outputs/multi_ref``` contains such examples.
 
   The following arguments can be used with `evaluate_multi_ref.py` to evaluate different setups:
 
-`--comet-setup-file` = path to folder with model outputs for the setup to evaluate. Example:   
-`--scores-file` = path to human quality scores (csv) to test against. Example:     
-`--norm` = set to True to calibrate the predicted quality std on the ECE.  
-`--score-type`= Choose type of scores between da | mqm .  
-`--docs` = Select segment or document level eval.  
-`--nruns` = For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
-`--sample` = Set to sample one reference from a multi-reference set instead of averaging over them.  
-`--numrefs`= Select over how many references to evaluate.  
-`--paireval` = Set to sample pairs of references from a multi-reference set.  
-`--lp` = Choose which language pair to evaluate over.  
+`--comet-setup-file`: Path to folder with model outputs for the setup to evaluate.   
+`--scores-file`: Path to human quality scores (csv) to test against.      
+`--norm`: Set to True to calibrate the predicted quality std on the ECE.  
+`--score-type`: Choose type of scores between da | mqm .  
+`--docs`: Select segment or document level eval.  
+`--nruns`: For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
+`--sample`: Set to sample one reference from a multi-reference set instead of averaging over them.  
+`--numrefs`: Select over how many references to evaluate.  
+`--paireval`: Set to sample pairs of references from a multi-reference set.  
+`--lp`: Choose which language pair to evaluate over.  
 
 ### Examples:
 We present below examples and outputs for each of the datasets used in the associated publication:
@@ -92,17 +97,17 @@ For this experiment we use PRISM translations of the source sentences instead of
 
 To calculate and plot the Precision@N and Recall@N for critical errors (as defined above) run the `evaluate_critical_mistake_retrieval.py` script. The following flags can be used:
 
-`--comet-setup-file` = path to folder with model outputs for the setup to evaluate. Example:   
-`--scores-file` = path to human quality scores (csv) to test against. Example:   
-`--comet-original-file` = path to folder with model outputs without MC dropout. Example:   
-`--norm` = set to True to calibrate the predicted quality std on the ECE.  
-`--score-type`= Choose type of scores between da | mqm .  
-`--nruns` = For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.  
-`--lp` = Choose which language pair to evaluate over.  
-`--dev-first` = select which half to be used as dev set.  
-`--optimise` = Set to true to optimise the critical error threshold (on recall values).  
-`--prefix` =  Set prefix of the plots to be saved.  
-`--norm_len`= Set to normalize human scores by sentence length. 
+`--comet-setup-file`: Path to folder with model outputs for the setup to evaluate.    
+`--scores-file`: Path to human quality scores (csv) to test against.    
+`--comet-original-file`: Path to folder with model outputs without MC dropout.    
+`--norm`: Set to True to calibrate the predicted quality std on the ECE.  
+`--score-type`: Choose type of scores between da | mqm .   
+`--nruns`: For MCD: Select how many dropout runs to evaluate | For ensembles: Select how many ensemble checkpoints to use.   
+`--lp`: Choose which language pair to evaluate over.   
+`--dev-first`: Select which half to be used as dev set.    
+`--optimise`: Set to true to optimise the critical error threshold (on recall values).   
+`--prefix`:  Set prefix of the plots to be saved.    
+`--norm_len`: Set to normalize human scores by sentence length.    
 
 
 # Reproducing Tables and Figures
