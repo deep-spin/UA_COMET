@@ -12,7 +12,7 @@
 
 #### This repository presents UA-COMET – an extension of the COMET metric implemented by Unbabel. 
 
-#### It contains the code and data to reproduce the experiments in [Uncertainty-Aware Machine Translation Evaluation]().
+#### It contains the code and data to reproduce the experiments in [Uncertainty-Aware Machine Translation Evaluation](https://arxiv.org/abs/2109.06352).
 
 
 ## Quick Installation
@@ -133,7 +133,7 @@ To know more about the rest of the parameters and their default values, take a l
 
 ## How to Reproduce and Evaluate Experiments
 
-The ```evaluation``` sub-folder contains the scripts and data necessary to reproduce the experiments presented in [Uncertainty-Aware Machine Translation Evaluation]() and/or test new model outputs. See the README in that folder for more detailed instructions.
+The ```evaluation``` sub-folder contains the scripts and data necessary to reproduce the experiments presented in [Uncertainty-Aware Machine Translation Evaluation](https://arxiv.org/abs/2109.06352) and/or test new model outputs. See the README in that folder for more detailed instructions.
 
 <!-- ### Simple Pythonic way to convert list or segments to model inputs:
 
