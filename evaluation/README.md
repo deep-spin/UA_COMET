@@ -1,7 +1,7 @@
 <!-- Evaluation and Result Reproduction -->
 # Getting Started
 
-The scripts and data in this folder allow to evaluate the predictions of COMET (or any other model MCD/ensemble outputs) with respect to uncertainty, and to reproduce the results and figures shown in [paper URL]. COMET predictions and human annotations are provided in the ```data/model_outputs``` and ```data/human_scores``` folders respectively. The necessary format and structure of those documents are explained in separate README files in these folders.
+The scripts and data in this folder allow to evaluate the predictions of COMET (or any other model MCD/ensemble outputs) with respect to uncertainty, and to reproduce the results and figures shown in [the paper](https://arxiv.org/abs/2109.06352). COMET predictions and human annotations are provided in the ```data/model_outputs``` and ```data/human_scores``` folders respectively. The necessary format and structure of those documents are explained in separate README files in these folders.
 
 
 # Experimental Setups and Evaluation metrics
