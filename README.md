@@ -21,15 +21,9 @@ We recommend python 3.6 to run COMET.
 
 Detailed usage examples and instructions can be found in the [Full Documentation](https://unbabel.github.io/COMET/html/index.html).
 
-Simple installation from PyPI
-
-```bash
-pip install unbabel-comet
-```
-
 To develop locally:
 ```bash
-git clone https://github.com/Unbabel/COMET
+git clone https://github.com/deep-spin/UA_COMET.git
 pip install -r requirements.txt
 pip install -e .
 ```
